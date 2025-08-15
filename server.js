@@ -243,13 +243,69 @@ app.delete('/api/events/:id', async (req, res) => {
   }
 });
 
+// Customers
+app.get('/api/customers', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM customers ORDER BY created_at DESC');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/customers', async (req, res) => {
+  try {
+    const { id, name, contact, email, phone, discount_type, discount_value, notes } = req.body;
+    const result = await pool.query(
+      `INSERT INTO customers (id, name, contact, email, phone, discount_type, discount_value, notes)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [id, name, contact, email, phone, discount_type, discount_value, notes]
+    );
+    // activity
+    await pool.query('INSERT INTO activity (type, ref, details) VALUES ($1,$2,$3)', ['customer.add', id, `Added ${name}`]);
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/customers/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, contact, email, phone, discount_type, discount_value, notes } = req.body;
+    const result = await pool.query(
+      `UPDATE customers SET name=$1, contact=$2, email=$3, phone=$4, discount_type=$5, discount_value=$6, notes=$7, updated_at=CURRENT_TIMESTAMP
+       WHERE id=$8 RETURNING *`,
+      [name, contact, email, phone, discount_type, discount_value, notes, id]
+    );
+    await pool.query('INSERT INTO activity (type, ref, details) VALUES ($1,$2,$3)', ['customer.update', id, `Updated ${name}`]);
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/customers/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const cust = await pool.query('SELECT name FROM customers WHERE id=$1', [id]);
+    const name = cust.rows[0]?.name || id;
+    const result = await pool.query('DELETE FROM customers WHERE id=$1 RETURNING *', [id]);
+    await pool.query('INSERT INTO activity (type, ref, details) VALUES ($1,$2,$3)', ['customer.delete', id, `Deleted ${name}`]);
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Checkouts
 app.get('/api/checkouts', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT c.*, e.name as event_name 
+      SELECT c.*, e.name as event_name, cu.name as customer_name
       FROM checkouts c 
       LEFT JOIN events e ON c.event_id = e.id 
+      LEFT JOIN customers cu ON c.customer_id = cu.id
       ORDER BY c.date DESC
     `);
     res.json(result.rows);
@@ -263,13 +319,13 @@ app.post('/api/checkouts', async (req, res) => {
   try {
     await client.query('BEGIN');
     
-    const { id, event_id, due_date, items, subtotal, tax, total } = req.body;
+    const { id, event_id, customer_id, due_date, items, subtotal, tax, total, discounts } = req.body;
     
     // Create checkout
     const checkoutResult = await client.query(
-      `INSERT INTO checkouts (id, event_id, due_date, subtotal, tax, total)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [id, event_id, due_date, subtotal, tax, total]
+      `INSERT INTO checkouts (id, event_id, customer_id, due_date, subtotal, discount_customer, discount_manual, discount_total, tax, total)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+      [id, event_id, customer_id||null, due_date, subtotal, (discounts?.customer)||0, (discounts?.manual)||0, (discounts?.total)||0, tax, total]
     );
     
     // Add checkout items

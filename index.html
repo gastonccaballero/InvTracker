@@ -63,6 +63,7 @@ hr.sep{border:none;border-top:1px solid #ffffff14;margin:8px 0}
 #invoiceArea{display:none}
 dialog{border:1px solid #ffffff22;background:var(--card);color:var(--text);border-radius:16px;padding:0;max-width:720px;width:clamp(320px,90vw,720px)}
 dialog::backdrop{background:#0008}
+#coAddDialog{max-width:1200px;width:clamp(360px,95vw,1200px)}
 .dialog-head{padding:12px 14px;border-bottom:1px solid #ffffff14;display:flex;align-items:center;gap:10px}
 .dialog-body{padding:14px}
 .dialog-actions{padding:12px 14px;border-top:1px solid #ffffff14;display:flex;gap:8px;justify-content:flex-end}
@@ -145,6 +146,7 @@ footer{opacity:.7;margin-top:10px;font-size:12px}
   <div class="nav no-print">
     <button class="tab active" data-tab="tab-inventory">Inventory</button>
     <button class="tab" data-tab="tab-events">Events</button>
+    <button class="tab" data-tab="tab-customers">Customers</button>
     <button class="tab" data-tab="tab-checkout">Checkout & Returns</button>
     <button class="tab" data-tab="tab-reports">Reports & Invoices</button>
     <div class="right"></div>
@@ -193,6 +195,34 @@ footer{opacity:.7;margin-top:10px;font-size:12px}
     </div>
   </section>
 
+  <!-- CUSTOMERS -->
+  <section id="tab-customers" class="grid hidden">
+    <div class="card">
+      <div class="flex" style="align-items:center">
+        <h3 style="margin-right:auto">Customers</h3>
+        <div class="searchbar">
+          <input id="custSearch" placeholder="Search name, email, phone…">
+          <button id="btnAddCustomer" class="primary">Add Customer</button>
+        </div>
+      </div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Contact</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Discount</th>
+            <th>Notes</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="custBody"></tbody>
+      </table>
+      <footer><small class="mono" id="custCount"></small></footer>
+    </div>
+  </section>
+
   <!-- CHECKOUT -->
   <section id="tab-checkout" class="grid hidden">
     <div class="cards">
@@ -202,14 +232,21 @@ footer{opacity:.7;margin-top:10px;font-size:12px}
           <select id="coEvent"></select>
           <input id="coDue" type="date" title="Due date">
           <div class="right"></div>
-          <input id="coSearch" placeholder="Search inventory to add…">
+          <button id="btnOpenCoAdd" class="primary">Add Inventory</button>
         </div>
-        <div class="flex" style="align-items:flex-start">
-          <div style="flex:1;min-width:260px">
-            <table class="table">
-              <thead><tr><th>SKU</th><th>Name</th><th>Avail</th><th></th></tr></thead>
-              <tbody id="coSearchBody"></tbody>
-            </table>
+        <div class="flex" style="gap:12px;align-items:center;margin-top:8px">
+          <select id="coCustomer" style="min-width:220px"></select>
+          <div class="badge">Customer discount: <span id="coCustDiscLabel">—</span></div>
+          <div class="right"></div>
+          <div class="flex" style="gap:8px;align-items:center">
+            <label>Manual Discount
+              <select id="coManualDiscType">
+                <option value="none">None</option>
+                <option value="percent">% Percent</option>
+                <option value="amount">$ Amount</option>
+              </select>
+            </label>
+            <input id="coManualDiscValue" type="number" step="0.01" min="0" value="0" style="width:120px">
           </div>
         </div>
         <hr class="sep">
@@ -224,6 +261,8 @@ footer{opacity:.7;margin-top:10px;font-size:12px}
           <div class="totals">
             <table>
               <tr><th>Subtotal</th><td id="coSubtotal" style="text-align:right">$0.00</td></tr>
+              <tr id="coCustDiscRow" style="display:none"><th>Customer Discount</th><td id="coCustDiscount" style="text-align:right">$0.00</td></tr>
+              <tr id="coManualDiscRow" style="display:none"><th id="coManualDiscLabel">Discount</th><td id="coManualDiscount" style="text-align:right">$0.00</td></tr>
               <tr><th>Tax</th><td id="coTax" style="text-align:right">$0.00</td></tr>
               <tr><th>Total</th><td id="coTotal" style="text-align:right"><strong>$0.00</strong></td></tr>
             </table>
@@ -262,6 +301,7 @@ footer{opacity:.7;margin-top:10px;font-size:12px}
           <div class="badge">Low stock: <span id="statLow">0</span></div>
           <div class="badge">Events: <span id="statEvents">0</span></div>
           <div class="badge">Checkouts: <span id="statCO">0</span></div>
+          <div class="badge">Customers: <span id="statCustomers">0</span></div>
         </div>
         <hr class="sep">
         <h3 style="margin-top:0">Recent Activity <small class="mono" id="actCount"></small></h3>
@@ -291,6 +331,64 @@ footer{opacity:.7;margin-top:10px;font-size:12px}
     <!-- Footer content removed -->
   </footer>
 </div>
+
+<!-- CHECKOUT: ADD INVENTORY DIALOG -->
+<dialog id="coAddDialog">
+  <div class="dialog-head">
+    <strong>Add Inventory</strong>
+    <div class="right"></div>
+    <button class="ghost" data-close>Close</button>
+  </div>
+  <div class="dialog-body">
+    <div class="searchbar" style="margin-bottom:8px">
+      <input id="coAddSearch" placeholder="Search SKU, name, category…">
+    </div>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Image</th><th>SKU</th><th>Name</th><th>Category</th><th>Loc</th><th>Unit</th>
+          <th>Qty (Avail/Total)</th><th>Price</th><th>Safety</th><th>Tags</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="coAddBody"></tbody>
+    </table>
+  </div>
+  <div class="dialog-actions">
+    <button class="ghost" data-close>Cancel</button>
+    <button id="btnCoAddSave" class="green">Save</button>
+  </div>
+  </dialog>
+
+<!-- CUSTOMER DIALOG -->
+<dialog id="custDialog">
+  <div class="dialog-head">
+    <strong id="custDialogTitle">New Customer</strong>
+    <div class="right"></div>
+    <button class="ghost" data-close>Close</button>
+  </div>
+  <div class="dialog-body">
+    <form id="custForm" class="formgrid">
+      <input type="hidden" name="id">
+      <div class="col6"><label>Name / Company<br><input name="name" required></label></div>
+      <div class="col6"><label>Contact<br><input name="contact" placeholder="Person"></label></div>
+      <div class="col6"><label>Email<br><input name="email" type="email"></label></div>
+      <div class="col6"><label>Phone<br><input name="phone"></label></div>
+      <div class="col6"><label>Discount Type<br>
+        <select name="discount_type">
+          <option value="none">None</option>
+          <option value="percent">Percent %</option>
+          <option value="amount">Amount $</option>
+        </select>
+      </label></div>
+      <div class="col6"><label>Discount Value<br><input name="discount_value" type="number" step="0.01" value="0" min="0"></label></div>
+      <div class="col12"><label>Notes<br><input name="notes"></label></div>
+    </form>
+  </div>
+  <div class="dialog-actions">
+    <button class="ghost" data-close>Cancel</button>
+    <button id="btnSaveCustomer" class="green">Save</button>
+  </div>
+</dialog>
 
 <!-- INVENTORY DIALOG -->
 <dialog id="invDialog">
@@ -424,6 +522,7 @@ footer{opacity:.7;margin-top:10px;font-size:12px}
 <script src="js/inventory.js"></script>
 <script src="js/events.js"></script>
 <script src="js/settings.js"></script>
+<script src="js/customers.js"></script>
 
 <script>
 /* ========= Utilities & Storage ========= */
@@ -466,6 +565,10 @@ window.addEventListener('databaseLoaded', async (event) => {
       console.log('🔧 Initializing settings module...');
       initSettings();
     }
+    if (typeof initCustomers === 'function') {
+      console.log('🔧 Initializing customers module...');
+      initCustomers();
+    }
     
     // Initialize remaining UI components
     if (typeof renderCheckouts === 'function') renderCheckouts();
@@ -491,6 +594,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (typeof initInventory === 'function') initInventory();
     if (typeof initEvents === 'function') initEvents();
     if (typeof initSettings === 'function') initSettings();
+    if (typeof initCustomers === 'function') initCustomers();
     
     // Initialize remaining UI components
     if (typeof renderCheckouts === 'function') renderCheckouts();
@@ -518,9 +622,13 @@ $$('.nav .tab').forEach(btn=>{
 // Events functions are now in js/events.js
 
 /* ========= Checkout & Returns ========= */
-const coEvent=$('#coEvent'), coDue=$('#coDue'), coSearch=$('#coSearch'), coSearchBody=$('#coSearchBody'), coLines=$('#coLines');
+const coEvent=$('#coEvent'), coDue=$('#coDue'), coLines=$('#coLines');
 const btnFinalizeCo=$('#btnFinalizeCo'), btnClearCo=$('#btnClearCo');
-let coDraft = {event_id:'',due_date:'',lines:[]}; // lines: {item_id,sku,name,qty,unit_price}
+const coAddDialog=$('#coAddDialog'), coAddSearch=$('#coAddSearch'), coAddBody=$('#coAddBody');
+const btnCoAddSave=$('#btnCoAddSave'), btnOpenCoAdd=$('#btnOpenCoAdd');
+const coCustomer=$('#coCustomer'), coCustDiscLabel=$('#coCustDiscLabel');
+const coManualDiscType=$('#coManualDiscType'), coManualDiscValue=$('#coManualDiscValue');
+let coDraft = {event_id:'',due_date:'',lines:[], customer_id:'', discount:{type:'none',value:0}, manual_discount:{type:'none',value:0}}; // lines: {item_id,sku,name,qty,unit_price}
 function fillEventSelects(){
   const opts = DB.events.map(e=>`<option value="${e.id}">${escapeHtml((e.date||'')+' — '+e.name)}</option>`).join('');
   coEvent.innerHTML = `<option value="">Select event…</option>`+opts;
@@ -529,22 +637,70 @@ function fillEventSelects(){
     const status = c.returned?'returned':'open';
     return `<option value="${c.id}">${escapeHtml((c.date||'').slice(0,10)+' — '+ev.name+' — '+c.items.length+' item(s) — '+status)}</option>`;
   }).join('');
-  // Reports invoice dropdown handled in renderReports
+  // Customers
+  coCustomer.innerHTML = `<option value="">Select customer…</option>` + (DB.customers||[]).map(c=>`<option value="${c.id}">${escapeHtml(c.name||'')}</option>`).join('');
 }
-function refreshCOInventorySearch(){
-  const q=(coSearch.value||'').toLowerCase();
+/* Add Inventory modal rendering */
+function renderCoAddList(){
+  const q=(coAddSearch.value||'').toLowerCase();
   const rows=DB.inventory.filter(i=>{
     return [i.sku,i.name,i.category].join(' ').toLowerCase().includes(q);
-  }).map(i=>`
-    <tr>
-      <td class="mono">${escapeHtml(i.sku)}</td>
-      <td>${escapeHtml(i.name)}</td>
-      <td>${i.qty_available}</td>
-      <td><button class="ghost" data-addco="${i.id}">Add</button></td>
-    </tr>`).join('');
-  coSearchBody.innerHTML = rows || `<tr><td colspan="4" style="color:#9ab">No matches.</td></tr>`;
+  }).map(i=>{
+    const max=i.qty_available||0;
+    const disabled = max<=0 ? 'disabled' : '';
+    const lowCls = i.qty_available <= (i.safety_stock || 0) ? 'low' : 'good';
+    const tags = (i.tags || []).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('');
+    const imageCell = i.image_path ? 
+      `<img src="${escapeHtml(i.image_path)}" alt="${escapeHtml(i.name)}" class="inventory-image" onerror="this.style.display='none'">` : 
+      '<div style="width:40px;height:40px;background:#1b2330;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#a7b0bf;font-size:12px;">📦</div>';
+    const curSym = DB.settings?.currency_symbol || DB.settings?.currencySymbol || '$';
+    return `
+      <tr>
+        <td>${imageCell}</td>
+        <td><small class="mono">${escapeHtml(i.sku)}</small></td>
+        <td>${escapeHtml(i.name)}</td>
+        <td>${escapeHtml(i.category || '')}</td>
+        <td>${escapeHtml(i.location || '')}</td>
+        <td>${escapeHtml(i.unit || '')}</td>
+        <td><span class="badge ${lowCls}">${i.qty_available}</span> / ${i.qty_total}</td>
+        <td>${fmtMoney(i.price, curSym)}</td>
+        <td>${i.safety_stock || 0}</td>
+        <td>${tags}</td>
+        <td class="row-actions">
+          <input type="number" min="0" step="1" value="0" max="${max}" data-coadd-qty="${i.id}" style="width:90px" ${disabled}>
+          <button class="ghost" data-coadd-inc="${i.id}" ${disabled}>+1</button>
+        </td>
+      </tr>`;
+  }).join('');
+  coAddBody.innerHTML = rows || `<tr><td colspan="11" style="color:#9ab">No matches.</td></tr>`;
 }
-coSearch.oninput=refreshCOInventorySearch; 
+coAddSearch && (coAddSearch.oninput = renderCoAddList);
+btnOpenCoAdd && (btnOpenCoAdd.onclick = ()=>{ renderCoAddList(); coAddDialog.showModal(); });
+coAddDialog?.addEventListener('click', e=>{ if(e.target?.hasAttribute?.('data-close')) coAddDialog.close(); });
+coAddBody?.addEventListener('click', e=>{
+  const incId = e.target.getAttribute('data-coadd-inc'); if(!incId) return;
+  const input = coAddBody.querySelector(`input[data-coadd-qty="${incId}"]`);
+  if(!input) return; const max = Number(input.getAttribute('max')||0);
+  const cur = Math.min(max, Math.max(0, Number(input.value||0)+1));
+  input.value = cur;
+});
+btnCoAddSave && (btnCoAddSave.onclick = ()=>{
+  const qtyInputs = Array.from(coAddBody.querySelectorAll('input[data-coadd-qty]'));
+  let any=false;
+  for(const inp of qtyInputs){
+    const id = inp.getAttribute('data-coadd-qty');
+    const qty = Math.max(0, Math.floor(Number(inp.value||0)));
+    if(qty>0){
+      const item = byId(DB.inventory, id); if(!item) continue;
+      const exists = coDraft.lines.find(l=>l.item_id===id);
+      if(exists){ exists.qty = Math.min((exists.qty||0)+qty, item.qty_available); }
+      else { coDraft.lines.push({item_id:item.id, sku:item.sku, name:item.name, qty:Math.min(qty,item.qty_available), unit_price:Number(item.price||0)}); }
+      any=true;
+    }
+  }
+  if(any){ renderCoLines(); coAddDialog.close(); }
+  else { alert('Select quantities to add.'); }
+});
 function renderCoLines(){
   const curSym = DB.settings.currency_symbol||'$';
   coLines.innerHTML = coDraft.lines.map(l=>{
@@ -558,22 +714,46 @@ function renderCoLines(){
       <td class="row-actions"><button class="ghost" data-remline="${l.item_id}">Remove</button></td>
     </tr>`;
   }).join('') || `<tr><td colspan="6" style="color:#9ab">No lines yet — add items from the left.</td></tr>`;
+  recomputeTotals();
+}
+function recomputeTotals(){
+  const curSym = DB.settings.currency_symbol||'$';
   const sub = coDraft.lines.reduce((a,b)=>a + Number(b.qty||0)*Number(b.unit_price||0), 0);
-  const tax = sub * (Number(DB.settings.tax_rate||0)/100);
-  const tot = sub + tax;
+  // Customer discount
+  let custDiscount = 0;
+  const cust = byId(DB.customers||[], coDraft.customer_id);
+  if(cust && cust.discount_type && cust.discount_type!=='none'){
+    if(cust.discount_type==='percent') custDiscount = sub * (Number(cust.discount_value||0)/100);
+    else if(cust.discount_type==='amount') custDiscount = Math.min(Number(cust.discount_value||0), sub);
+  }
+  // Manual discount
+  let manualDiscount = 0;
+  if(coDraft.manual_discount?.type==='percent') manualDiscount = sub * (Number(coDraft.manual_discount.value||0)/100);
+  else if(coDraft.manual_discount?.type==='amount') manualDiscount = Math.min(Number(coDraft.manual_discount.value||0), sub);
+  const totalDiscount = Math.min(sub, custDiscount + manualDiscount);
+  const taxable = Math.max(0, sub - totalDiscount);
+  const taxRate = (DB.settings.tax_rate ?? DB.settings.taxRate ?? 0);
+  const tax = taxable * (Number(taxRate)/100);
+  const tot = taxable + tax;
   $('#coSubtotal').textContent = fmtMoney(sub,curSym);
+  // Toggle discount rows and labels
+  const hasCust = custDiscount > 0.000001;
+  const hasManual = manualDiscount > 0.000001;
+  const custRow = document.getElementById('coCustDiscRow');
+  const manualRow = document.getElementById('coManualDiscRow');
+  const manualLabel = document.getElementById('coManualDiscLabel');
+  if(custRow) custRow.style.display = hasCust ? '' : 'none';
+  if(manualRow) manualRow.style.display = hasManual ? '' : 'none';
+  if(manualLabel) manualLabel.textContent = hasCust ? 'Additional Discount' : 'Discount';
+  const custCell = document.getElementById('coCustDiscount');
+  const manualCell = document.getElementById('coManualDiscount');
+  if(custCell) custCell.textContent = fmtMoney(custDiscount,curSym);
+  if(manualCell) manualCell.textContent = fmtMoney(manualDiscount,curSym);
   $('#coTax').textContent = fmtMoney(tax,curSym);
   $('#coTotal').textContent = fmtMoney(tot,curSym);
+  const label = cust ? (cust.discount_type==='percent' ? `${Number(cust.discount_value||0)}%` : (cust.discount_type==='amount' ? fmtMoney(cust.discount_value,curSym) : '—')) : '—';
+  coCustDiscLabel.textContent = label;
 }
-coSearchBody.addEventListener('click',(e)=>{
-  const addId = e.target.getAttribute('data-addco'); if(!addId) return;
-  const item = byId(DB.inventory, addId); if(!item) return;
-  if(item.qty_available<=0){ alert('No available quantity.'); return; }
-  const exists = coDraft.lines.find(l=>l.item_id===item.id);
-  if(exists){ exists.qty = Math.min((exists.qty||0)+1, item.qty_available); }
-  else { coDraft.lines.push({item_id:item.id, sku:item.sku, name:item.name, qty:1, unit_price:Number(item.price||0)}); }
-  renderCoLines();
-});
 coLines.addEventListener('input',(e)=>{
   const qtyId = e.target.getAttribute('data-qty');
   const priceId = e.target.getAttribute('data-price');
@@ -594,7 +774,10 @@ coLines.addEventListener('click',(e)=>{
   const rem = e.target.getAttribute('data-remline');
   if(rem){ coDraft.lines = coDraft.lines.filter(l=>l.item_id!==rem); renderCoLines(); }
 });
-btnClearCo.onclick=()=>{ coDraft={event_id:'',due_date:'',lines:[]}; coEvent.value=''; coDue.value=''; renderCoLines(); };
+coCustomer.addEventListener('change', ()=>{ coDraft.customer_id = coCustomer.value||''; recomputeTotals(); });
+coManualDiscType.addEventListener('change', ()=>{ coDraft.manual_discount.type = coManualDiscType.value; recomputeTotals(); });
+coManualDiscValue.addEventListener('input', ()=>{ coDraft.manual_discount.value = Number(coManualDiscValue.value||0); recomputeTotals(); });
+btnClearCo.onclick=()=>{ coDraft={event_id:'',due_date:'',lines:[],customer_id:'',discount:{type:'none',value:0},manual_discount:{type:'none',value:0}}; coEvent.value=''; coDue.value=''; coCustomer.value=''; coManualDiscType.value='none'; coManualDiscValue.value='0'; renderCoLines(); };
 btnFinalizeCo.onclick=()=>{
   if(!coEvent.value){ alert('Choose an event.'); return; }
   if(coDraft.lines.length===0){ alert('Add at least one line.'); return; }
@@ -607,24 +790,37 @@ btnFinalizeCo.onclick=()=>{
   for(const l of coDraft.lines){
     const it = byId(DB.inventory, l.item_id); it.qty_available -= l.qty; it.updated_at=nowISO();
   }
-  const subtotal = coDraft.lines.reduce((a,b)=>a+(b.qty*b.unit_price),0);
-  const tax = subtotal*(Number(DB.settings.taxRate||0)/100);
-  const total = subtotal+tax;
+  const sub = coDraft.lines.reduce((a,b)=>a+(b.qty*b.unit_price),0);
+  // compute discounts and totals
+  let custDiscount = 0; const cust = byId(DB.customers||[], coDraft.customer_id);
+  if(cust && cust.discount_type && cust.discount_type!=='none'){
+    if(cust.discount_type==='percent') custDiscount = sub * (Number(cust.discount_value||0)/100);
+    else if(cust.discount_type==='amount') custDiscount = Math.min(Number(cust.discount_value||0), sub);
+  }
+  let manualDiscount = 0;
+  if(coDraft.manual_discount?.type==='percent') manualDiscount = sub * (Number(coDraft.manual_discount.value||0)/100);
+  else if(coDraft.manual_discount?.type==='amount') manualDiscount = Math.min(Number(coDraft.manual_discount.value||0), sub);
+  const totalDiscount = Math.min(sub, custDiscount + manualDiscount);
+  const taxable = Math.max(0, sub - totalDiscount);
+  const tax = taxable*(Number(DB.settings.taxRate||0)/100);
+  const total = taxable+tax;
   const co = {
     id: uid(),
     event_id: coEvent.value,
     date: nowISO(),
     due_date: coDue.value||'',
+    customer_id: coDraft.customer_id||'',
+    discounts: { customer: custDiscount, manual: manualDiscount, total: totalDiscount, manual_type: coDraft.manual_discount?.type||'none' },
     items: coDraft.lines.map(l=>({item_id:l.item_id,sku:l.sku,name:l.name,qty:Number(l.qty),unit_price:Number(l.unit_price)})),
-    subtotal,tax,total,returns:[],returned:false
+    subtotal: sub, tax, total, returns:[], returned:false
   };
   DB.checkouts.unshift(co);
   const ev = byId(DB.events, co.event_id);
   DB.activity.unshift({date:nowISO(), type:'checkout', ref:co.id, details:`${ev?.name||'Event'} • ${co.items.length} item(s)`});
   save();
   // reset builder
-  coDraft={event_id:'',due_date:'',lines:[]}; coEvent.value=''; coDue.value='';
-  renderCoLines(); refreshCOInventorySearch(); renderReports(); renderCheckouts();
+  coDraft={event_id:'',due_date:'',lines:[],customer_id:'',discount:{type:'none',value:0},manual_discount:{type:'none',value:0}}; coEvent.value=''; coDue.value=''; coCustomer.value=''; coManualDiscType.value='none'; coManualDiscValue.value='0';
+  renderCoLines(); renderReports(); renderCheckouts();
   alert('Checkout created. You can view/print its invoice in Reports.');
 };
 
@@ -694,6 +890,7 @@ function renderReports(){
   $('#statEvents').textContent = DB.events.length;
   $('#statCO').textContent = DB.checkouts.length;
   $('#statLow').textContent = DB.inventory.filter(i=>i.qty_available<= (i.safety_stock||0)).length;
+  $('#statCustomers').textContent = (DB.customers||[]).length;
   // Activity (last 30 days)
   const since = Date.now() - 1000*60*60*24*30;
   const acts = DB.activity.filter(a => new Date(a.date).getTime() >= since);
@@ -733,6 +930,7 @@ function openInvoice(checkoutId){
     <div class="totals">
       <table>
         <tr><th>Subtotal</th><td style="text-align:right">${fmtMoney(co.subtotal||0,currency)}</td></tr>
+        <tr><th>Discounts</th><td style="text-align:right">${fmtMoney((co.discounts?.total)||0,currency)}</td></tr>
         <tr><th>Tax</th><td style="text-align:right">${fmtMoney(co.tax||0,currency)}</td></tr>
         <tr><th>Total</th><td style="text-align:right"><strong>${fmtMoney(co.total||0,currency)}</strong></td></tr>
       </table>
@@ -779,7 +977,7 @@ function openInvoice(checkoutId){
         <tbody>${lineRows}</tbody>
       </table>
       ${totalsBlock}
-      <div style="margin-top:12px"><small>Notes: ${escapeHtml(ev.notes||'')}</small></div>
+      <div style="margin-top:12px"><small>Customer: ${escapeHtml((byId(DB.customers||[],co.customer_id)||{}).name||'')}</small></div>
     </div>`;
 }
 $('#btnOpenInvoice').onclick = ()=>{ const id = invoiceSelect.value; if(!id){alert('Choose an invoice');return;} openInvoice(id); };
@@ -794,7 +992,6 @@ togglePrices.addEventListener('change', ()=>{ const id=invoiceSelect.value; if(i
 /* ========= Checkout: wiring + reports refreshers ========= */
 function renderCheckouts(){
   fillEventSelects();
-  refreshCOInventorySearch();
   renderCoLines();
   renderReturns();
 }
