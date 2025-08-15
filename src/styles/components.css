@@ -1,0 +1,52 @@
+button,.btn{background:var(--muted);color:var(--text);border:1px solid #ffffff1a;border-radius:12px;padding:8px 12px;cursor:pointer}
+button:hover,.btn:hover{border-color:#ffffff33}
+button.primary{background:linear-gradient(135deg,#3a7bff,#6aa2ff);border-color:#0000;color:white}
+button.green{background:linear-gradient(135deg,#1fbf8f,#36d79f);border-color:#0000;color:#042}
+button.warn{background:linear-gradient(135deg,#ffb020,#ff795a);border-color:#0000;color:#2b1800}
+button.ghost{background:transparent;border-color:#ffffff26}
+input,select,textarea{background:#0f141c;border:1px solid #ffffff1a;border-radius:10px;color:var(--text);padding:8px 10px;outline:none}
+input:focus,select:focus,textarea:focus{box-shadow:var(--ring);border-color:#6aa2ff80}
+.table{width:100%;border-collapse:separate;border-spacing:0 8px}
+.table th,.table td{text-align:left;padding:10px 12px}
+.table thead th{font-size:12px;letter-spacing:.02em;color:var(--soft)}
+.table tbody tr{background:#0f141c;border:1px solid #ffffff12}
+.table tbody tr td:first-child{border-top-left-radius:10px;border-bottom-left-radius:10px}
+.table tbody tr td:last-child{border-top-right-radius:10px;border-bottom-right-radius:10px}
+.row-actions{display:flex;gap:6px;flex-wrap:wrap}
+.kbd{font:12px/1 Menlo,Consolas,monospace;background:#00000066;border:1px solid #ffffff1a;border-radius:6px;padding:2px 6px;color:#cfe}
+.badge{padding:2px 8px;border-radius:999px;border:1px solid #ffffff20;background:#09121b;color:#cde;font-size:12px}
+.tag{padding:2px 6px;border-radius:6px;background:#152033;border:1px solid #ffffff1a;color:#9dc2ff;font-size:12px;margin-right:6px}
+.low{background:#2a1720;border-color:#ff8aa1;color:#ffc1cb}
+.good{background:#13271f;border-color:#3fd3a1;color:#aef5dc}
+.nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.nav .tab{padding:8px 10px;border-radius:10px;border:1px solid #ffffff1a;background:#0f141c;cursor:pointer}
+.nav .tab.active{background:linear-gradient(135deg,#3a7bff,#6aa2ff);border-color:#0000;color:white}
+.nav .tab.active[data-tab="tab-inventory"]{background:linear-gradient(135deg,#3a7bff,#6aa2ff);border-color:#0000;color:white}
+.nav .tab.active[data-tab="tab-events"]{background:linear-gradient(135deg,#1fbf8f,#36d79f);border-color:#0000;color:white}
+.nav .tab.active[data-tab="tab-checkout"]{background:linear-gradient(135deg,#ffb020,#ff795a);border-color:#0000;color:white}
+.nav .tab.active[data-tab="tab-reports"]{background:linear-gradient(135deg,#7b66ff,#a855f7);border-color:#0000;color:white}
+.invoice{background:white;color:black;border-radius:12px;padding:18px;border:1px solid #00000022}
+.invoice table{width:100%;border-collapse:collapse}
+.invoice th,.invoice td{padding:8px;border-bottom:1px solid #00000018}
+.invoice h2{margin:0 0 8px 0}
+.invoice small{color:#333}
+#invoiceArea.active{display:block}
+#invoiceArea{display:none}
+dialog{border:1px solid #ffffff22;background:var(--card);color:var(--text);border-radius:16px;padding:0;max-width:720px;width:clamp(320px,90vw,720px)}
+dialog::backdrop{background:#0008}
+.dialog-head{padding:12px 14px;border-bottom:1px solid #ffffff14;display:flex;align-items:center;gap:10px}
+.dialog-body{padding:14px}
+.dialog-actions{padding:12px 14px;border-top:1px solid #ffffff14;display:flex;gap:8px;justify-content:flex-end}
+.formgrid{display:grid;grid-template-columns:repeat(12,1fr);gap:10px}
+.formgrid .col6{grid-column:span 12}@media(min-width:800px){.formgrid .col6{grid-column:span 6}}
+.note{padding:8px 10px;border:1px dashed #ffffff2a;background:#0e151d;border-radius:10px;color:#c9d4e6}
+
+/* Image Upload Styles */
+.image-upload-container { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.image-preview { width: 200px; height: 200px; border: 2px dashed #ffffff33; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: border-color 0.2s; }
+.image-preview:hover { border-color: #6aa2ff; }
+.upload-placeholder { display: flex; flex-direction: column; align-items: center; gap: 8px; color: #a7b0bf; }
+.upload-placeholder span:first-child { font-size: 24px; }
+.inventory-image { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid #ffffff1a; }
+
+
