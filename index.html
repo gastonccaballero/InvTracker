@@ -1,0 +1,806 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Inventory & Events — Single‑File App</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{--bg:#0b0f14;--card:#121821;--muted:#1b2330;--text:#e9eef6;--soft:#a7b0bf;--acc:#6aa2ff;--acc2:#32d6a0;--warn:#ffb020;--bad:#ff5d73;--ok:#6ee7b7;--ring:0 0 0 2px #6aa2ff55;--radius:14px}
+*{box-sizing:border-box}html,body{height:100%}body{margin:0;background:linear-gradient(180deg,#08101a,#0b0f14 25%,#0b0f14);color:var(--text);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial}
+a{color:var(--acc)}
+.container{max-width:1200px;margin:0 auto;padding:24px}
+.header{display:flex;align-items:center;gap:12px;justify-content:space-between;margin-bottom:16px}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:linear-gradient(135deg,var(--acc),#7b66ff)}
+h1{font-size:18px;margin:0}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap}
+button,.btn{background:var(--muted);color:var(--text);border:1px solid #ffffff1a;border-radius:12px;padding:8px 12px;cursor:pointer}
+button:hover,.btn:hover{border-color:#ffffff33}
+button.primary{background:linear-gradient(135deg,#3a7bff,#6aa2ff);border-color:#0000;color:white}
+button.green{background:linear-gradient(135deg,#1fbf8f,#36d79f);border-color:#0000;color:#042}
+button.warn{background:linear-gradient(135deg,#ffb020,#ff795a);border-color:#0000;color:#2b1800}
+button.ghost{background:transparent;border-color:#ffffff26}
+input,select,textarea{background:#0f141c;border:1px solid #ffffff1a;border-radius:10px;color:var(--text);padding:8px 10px;outline:none}
+input:focus,select:focus,textarea:focus{box-shadow:var(--ring);border-color:#6aa2ff80}
+.grid{display:grid;gap:14px}
+.cards{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
+.card{grid-column:span 12;background:var(--card);border:1px solid #ffffff14;border-radius:var(--radius);padding:14px}
+.card h3{margin:0 0 10px 0;font-size:16px}
+@media(min-width:900px){.card.span6{grid-column:span 6}.card.span4{grid-column:span 4}.card.span8{grid-column:span 8}}
+.table{width:100%;border-collapse:separate;border-spacing:0 8px}
+.table th,.table td{text-align:left;padding:10px 12px}
+.table thead th{font-size:12px;letter-spacing:.02em;color:var(--soft)}
+.table tbody tr{background:#0f141c;border:1px solid #ffffff12}
+.table tbody tr td:first-child{border-top-left-radius:10px;border-bottom-left-radius:10px}
+.table tbody tr td:last-child{border-top-right-radius:10px;border-bottom-right-radius:10px}
+.row-actions{display:flex;gap:6px;flex-wrap:wrap}
+.kbd{font:12px/1 Menlo,Consolas,monospace;background:#00000066;border:1px solid #ffffff1a;border-radius:6px;padding:2px 6px;color:#cfe}
+.badge{padding:2px 8px;border-radius:999px;border:1px solid #ffffff20;background:#09121b;color:#cde;font-size:12px}
+.tag{padding:2px 6px;border-radius:6px;background:#152033;border:1px solid #ffffff1a;color:#9dc2ff;font-size:12px;margin-right:6px}
+.low{background:#2a1720;border-color:#ff8aa1;color:#ffc1cb}
+.good{background:#13271f;border-color:#3fd3a1;color:#aef5dc}
+.nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.nav .tab{padding:8px 10px;border-radius:10px;border:1px solid #ffffff1a;background:#0f141c;cursor:pointer}
+.nav .tab.active{background:linear-gradient(135deg,#3a7bff,#6aa2ff);border-color:#0000;color:white}
+.nav .tab.active[data-tab="tab-inventory"]{background:linear-gradient(135deg,#3a7bff,#6aa2ff);border-color:#0000;color:white}
+.nav .tab.active[data-tab="tab-events"]{background:linear-gradient(135deg,#1fbf8f,#36d79f);border-color:#0000;color:white}
+.nav .tab.active[data-tab="tab-checkout"]{background:linear-gradient(135deg,#ffb020,#ff795a);border-color:#0000;color:white}
+.nav .tab.active[data-tab="tab-reports"]{background:linear-gradient(135deg,#7b66ff,#a855f7);border-color:#0000;color:white}
+.hidden{display:none!important}
+.flex{display:flex;gap:10px;flex-wrap:wrap}
+.right{margin-left:auto}
+.searchbar{display:flex;gap:8px;align-items:center}
+small.mono{font:12px/1.3 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#b9c3d6}
+hr.sep{border:none;border-top:1px solid #ffffff14;margin:8px 0}
+.totals table{width:260px;border-collapse:collapse}
+.totals td,.totals th{padding:6px 8px;border-bottom:1px dashed #ffffff1a}
+.invoice{background:white;color:black;border-radius:12px;padding:18px;border:1px solid #00000022}
+.invoice table{width:100%;border-collapse:collapse}
+.invoice th,.invoice td{padding:8px;border-bottom:1px solid #00000018}
+.invoice h2{margin:0 0 8px 0}
+.invoice small{color:#333}
+#invoiceArea.active{display:block}
+#invoiceArea{display:none}
+dialog{border:1px solid #ffffff22;background:var(--card);color:var(--text);border-radius:16px;padding:0;max-width:720px;width:clamp(320px,90vw,720px)}
+dialog::backdrop{background:#0008}
+.dialog-head{padding:12px 14px;border-bottom:1px solid #ffffff14;display:flex;align-items:center;gap:10px}
+.dialog-body{padding:14px}
+.dialog-actions{padding:12px 14px;border-top:1px solid #ffffff14;display:flex;gap:8px;justify-content:flex-end}
+.formgrid{display:grid;grid-template-columns:repeat(12,1fr);gap:10px}
+.formgrid .col6{grid-column:span 12}@media(min-width:800px){.formgrid .col6{grid-column:span 6}}
+.note{padding:8px 10px;border:1px dashed #ffffff2a;background:#0e151d;border-radius:10px;color:#c9d4e6}
+footer{opacity:.7;margin-top:10px;font-size:12px}
+@media print{
+  body{background:white}
+  .header,.nav,.toolbar,.no-print{display:none!important}
+  #invoiceArea{display:block}
+  #invoiceArea .invoice{box-shadow:none;border:0;padding:0}
+}
+
+/* Image Upload Styles */
+.image-upload-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.image-preview {
+  width: 200px;
+  height: 200px;
+  border: 2px dashed #ffffff33;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.image-preview:hover {
+  border-color: #6aa2ff;
+}
+
+.upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #a7b0bf;
+}
+
+.upload-placeholder span:first-child {
+  font-size: 24px;
+}
+
+.inventory-image {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #ffffff1a;
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2l8 5v10l-8 5-8-5V7l8-5Z" fill="#ffffff22"/><path d="M12 4l6 3.75V16.5L12 20l-6-3.5V7.75L12 4Z" fill="white" opacity=".85"/></svg>
+      </div>
+      <h1>Inventory & Event Checkout</h1>
+      <span class="badge">local only</span>
+    </div>
+    <div class="toolbar">
+      <button id="btnSettings" class="ghost" title="Settings">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="nav no-print">
+    <button class="tab active" data-tab="tab-inventory">Inventory</button>
+    <button class="tab" data-tab="tab-events">Events</button>
+    <button class="tab" data-tab="tab-checkout">Checkout & Returns</button>
+    <button class="tab" data-tab="tab-reports">Reports & Invoices</button>
+    <div class="right"></div>
+  </div>
+
+  <!-- INVENTORY -->
+  <section id="tab-inventory" class="grid">
+    <div class="card">
+      <div class="flex" style="align-items:center">
+        <h3 style="margin-right:auto">Inventory</h3>
+        <div class="searchbar">
+          <input id="invSearch" placeholder="Search name, SKU, category…">
+          <select id="invFilterCategory"><option value="">All categories</option></select>
+          <select id="invFilterLow"><option value="">Stock</option><option value="low">Low only</option><option value="ok">Sufficient</option></select>
+          <button id="btnAddItem" class="primary">Add Item</button>
+        </div>
+      </div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Image</th><th>SKU</th><th>Name</th><th>Category</th><th>Loc</th><th>Unit</th>
+            <th>Qty (Avail/Total)</th><th>Price</th><th>Safety</th><th>Tags</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="invBody"></tbody>
+      </table>
+      <footer><small class="mono" id="invCount"></small></footer>
+    </div>
+  </section>
+
+  <!-- EVENTS -->
+  <section id="tab-events" class="grid hidden">
+    <div class="card">
+      <div class="flex" style="align-items:center">
+        <h3 style="margin-right:auto">Events</h3>
+        <div class="searchbar">
+          <input id="evtSearch" placeholder="Search event or client…">
+          <button id="btnAddEvent" class="primary">Add Event</button>
+        </div>
+      </div>
+      <table class="table">
+        <thead><tr><th>Name</th><th>Client</th><th>Date</th><th>Location</th><th>Status</th><th>Contact</th><th>Actions</th></tr></thead>
+        <tbody id="evtBody"></tbody>
+      </table>
+      <footer><small class="mono" id="evtCount"></small></footer>
+    </div>
+  </section>
+
+  <!-- CHECKOUT -->
+  <section id="tab-checkout" class="grid hidden">
+    <div class="cards">
+      <div class="card span8">
+        <h3>Create Checkout</h3>
+        <div class="flex">
+          <select id="coEvent"></select>
+          <input id="coDue" type="date" title="Due date">
+          <div class="right"></div>
+          <input id="coSearch" placeholder="Search inventory to add…">
+        </div>
+        <div class="flex" style="align-items:flex-start">
+          <div style="flex:1;min-width:260px">
+            <table class="table">
+              <thead><tr><th>SKU</th><th>Name</th><th>Avail</th><th></th></tr></thead>
+              <tbody id="coSearchBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <hr class="sep">
+        <h3>Checkout Lines</h3>
+        <table class="table">
+          <thead><tr><th>SKU</th><th>Item</th><th style="width:80px">Qty</th><th style="width:110px">Unit</th><th style="width:120px">Line</th><th>Actions</th></tr></thead>
+          <tbody id="coLines"></tbody>
+        </table>
+        <div class="flex" style="align-items:center;margin-top:6px">
+          <div class="note">Tip: use <span class="kbd">Tab</span> to move between qty/price fields.</div>
+          <div class="right"></div>
+          <div class="totals">
+            <table>
+              <tr><th>Subtotal</th><td id="coSubtotal" style="text-align:right">$0.00</td></tr>
+              <tr><th>Tax</th><td id="coTax" style="text-align:right">$0.00</td></tr>
+              <tr><th>Total</th><td id="coTotal" style="text-align:right"><strong>$0.00</strong></td></tr>
+            </table>
+          </div>
+        </div>
+        <div class="flex" style="justify-content:flex-end;margin-top:8px">
+          <button id="btnClearCo" class="ghost">Clear</button>
+          <button id="btnFinalizeCo" class="green">Finalize Checkout</button>
+        </div>
+      </div>
+
+      <div class="card span4">
+        <h3>Returns</h3>
+        <div class="flex">
+          <select id="retCheckout"></select>
+          <button id="btnLoadReturns" class="ghost">Load</button>
+        </div>
+        <table class="table" style="margin-top:8px">
+          <thead><tr><th>SKU</th><th>Item</th><th>Out</th><th>Returned</th><th>Now</th></tr></thead>
+          <tbody id="retBody"></tbody>
+        </table>
+        <div class="flex" style="justify-content:flex-end;margin-top:8px">
+          <button id="btnProcessReturns" class="warn">Process Returns</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- REPORTS -->
+  <section id="tab-reports" class="grid hidden">
+    <div class="cards">
+      <div class="card span6">
+        <h3>Quick Stats</h3>
+        <div class="flex">
+          <div class="badge">Items: <span id="statItems">0</span></div>
+          <div class="badge">Low stock: <span id="statLow">0</span></div>
+          <div class="badge">Events: <span id="statEvents">0</span></div>
+          <div class="badge">Checkouts: <span id="statCO">0</span></div>
+        </div>
+        <hr class="sep">
+        <h3 style="margin-top:0">Recent Activity <small class="mono" id="actCount"></small></h3>
+        <table class="table">
+          <thead><tr><th>Date</th><th>Type</th><th>Ref</th><th>Details</th></tr></thead>
+          <tbody id="actBody"></tbody>
+        </table>
+      </div>
+
+      <div class="card span6">
+        <div class="flex" style="align-items:center">
+          <h3>Invoices</h3>
+          <div class="right"></div>
+          <label class="flex" style="align-items:center;gap:6px"><input type="checkbox" id="togglePrices" checked> Show prices</label>
+        </div>
+        <div class="flex">
+          <select id="invoiceSelect" style="min-width:280px"></select>
+          <button id="btnOpenInvoice" class="ghost">Open</button>
+          <button id="btnPrintInvoice" class="primary">Print</button>
+        </div>
+        <div id="invoiceArea" style="margin-top:12px"></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="no-print">
+    <!-- Footer content removed -->
+  </footer>
+</div>
+
+<!-- INVENTORY DIALOG -->
+<dialog id="invDialog">
+  <div class="dialog-head">
+    <strong id="invDialogTitle">New Item</strong>
+    <div class="right"></div>
+    <button class="ghost" data-close>Close</button>
+  </div>
+  <div class="dialog-body">
+    <form id="invForm" class="formgrid">
+      <input type="hidden" name="id">
+      <input type="hidden" name="image_path">
+      <div class="col12">
+        <label>Item Image<br>
+          <div class="image-upload-container">
+            <div id="imagePreview" class="image-preview">
+              <img id="previewImg" src="" style="display: none; max-width: 200px; max-height: 200px; border-radius: 8px;">
+              <div id="uploadPlaceholder" class="upload-placeholder">
+                <span>📷</span>
+                <span>Click to upload image</span>
+              </div>
+            </div>
+            <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+            <button type="button" id="btnUploadImage" class="ghost">Upload Image</button>
+            <button type="button" id="btnRemoveImage" class="ghost" style="display: none;">Remove</button>
+          </div>
+        </label>
+      </div>
+      <div class="col6">
+        <label>SKU<br><input name="sku" required></label>
+      </div>
+      <div class="col6">
+        <label>Name<br><input name="name" required></label>
+      </div>
+      <div class="col6">
+        <label>Category<br><input name="category"></label>
+      </div>
+      <div class="col6">
+        <label>Location<br><input name="location"></label>
+      </div>
+      <div class="col6">
+        <label>Unit<br><input name="unit" placeholder="pcs, set, box…"></label>
+      </div>
+      <div class="col6">
+        <label>Safety stock<br><input name="safety_stock" type="number" step="1" min="0" value="0"></label>
+      </div>
+      <div class="col6">
+        <label>Total quantity<br><input name="qty_total" type="number" step="1" min="0" value="0"></label>
+      </div>
+      <div class="col6">
+        <label>Available now<br><input name="qty_available" type="number" step="1" min="0" value="0"></label>
+      </div>
+      <div class="col6">
+        <label>Cost<br><input name="cost" type="number" step="0.01" min="0" value="0"></label>
+      </div>
+      <div class="col6">
+        <label>Price (rental)<br><input name="price" type="number" step="0.01" min="0" value="0"></label>
+      </div>
+      <div class="col6">
+        <label>Tags (comma separated)<br><input name="tags" placeholder="rental, indoor, …"></label>
+      </div>
+      <div class="col6">
+        <label>Notes<br><input name="notes"></label>
+      </div>
+    </form>
+    <div class="note">Hint: If you leave “Available now” blank, it will default to Total quantity.</div>
+  </div>
+  <div class="dialog-actions">
+    <button class="ghost" data-close>Cancel</button>
+    <button id="btnSaveItem" class="green">Save</button>
+  </div>
+</dialog>
+
+<!-- EVENT DIALOG -->
+<dialog id="evtDialog">
+  <div class="dialog-head">
+    <strong id="evtDialogTitle">New Event</strong>
+    <div class="right"></div>
+    <button class="ghost" data-close>Close</button>
+  </div>
+  <div class="dialog-body">
+    <form id="evtForm" class="formgrid">
+      <input type="hidden" name="id">
+      <div class="col6"><label>Event name<br><input name="name" required></label></div>
+      <div class="col6"><label>Client<br><input name="client"></label></div>
+      <div class="col6"><label>Date<br><input type="date" name="date"></label></div>
+      <div class="col6"><label>Location<br><input name="location"></label></div>
+      <div class="col6"><label>Contact<br><input name="contact" placeholder="email or phone"></label></div>
+      <div class="col6"><label>Status<br>
+        <select name="status">
+          <option>planned</option><option>active</option><option>done</option><option>cancelled</option>
+        </select></label>
+      </div>
+      <div class="col6"><label>Notes<br><input name="notes"></label></div>
+    </form>
+  </div>
+  <div class="dialog-actions">
+    <button class="ghost" data-close>Cancel</button>
+    <button id="btnSaveEvent" class="green">Save</button>
+  </div>
+</dialog>
+
+<!-- SETTINGS -->
+<dialog id="settingsDialog">
+  <div class="dialog-head">
+    <strong>Settings</strong>
+    <div class="right"></div>
+    <button class="ghost" data-close>Close</button>
+  </div>
+  <div class="dialog-body">
+    <form id="settingsForm" class="formgrid">
+      <div class="col6"><label>Business name<br><input name="biz_name"></label></div>
+      <div class="col6"><label>Phone<br><input name="biz_phone"></label></div>
+      <div class="col6"><label>Address<br><input name="biz_address"></label></div>
+      <div class="col6"><label>Email<br><input name="biz_email"></label></div>
+      <div class="col6"><label>Logo URL (optional)<br><input name="logo" placeholder="https://…"></label></div>
+      <div class="col6"><label>Currency symbol<br><input name="currency" value="$"></label></div>
+      <div class="col6"><label>Tax rate (%)<br><input name="tax" type="number" step="0.001" value="0"></label></div>
+    </form>
+  </div>
+  <div class="dialog-actions">
+    <button class="ghost" data-close>Cancel</button>
+    <button id="btnSaveSettings" class="green">Save</button>
+  </div>
+</dialog>
+
+
+
+<!-- Include the database client -->
+<script src="database-client.js"></script>
+<script src="js/inventory.js"></script>
+<script src="js/events.js"></script>
+<script src="js/settings.js"></script>
+
+<script>
+/* ========= Utilities & Storage ========= */
+// These functions are already defined in database-client.js, so we don't need to redeclare them
+// const $ = sel => document.querySelector(sel);
+// const $$ = sel => Array.from(document.querySelectorAll(sel));
+// const nowISO = () => new Date().toISOString();
+// const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+// function byId(arr, id){ return arr.find(x=>x.id===id); }
+// function idxById(arr,id){ return arr.findIndex(x=>x.id===id); }
+// function fmtMoney(n, sym){return (sym||'$')+Number(n||0).toFixed(2);}
+// function escapeHtml(s){return (s??'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+
+// Wait for database to be ready
+let dbReady = false;
+
+// Listen for database loaded event
+window.addEventListener('databaseLoaded', async (event) => {
+  console.log('🔄 Database loaded event received:', event.detail);
+  
+  if (event.detail.success) {
+    dbReady = true;
+    console.log('✅ Database ready, initializing UI...');
+    console.log('DB state:', { 
+      settings: DB.settings, 
+      inventory: DB.inventory.length, 
+      events: DB.events.length 
+    });
+    
+    // Initialize all modules
+    if (typeof initInventory === 'function') {
+      console.log('🔧 Initializing inventory module...');
+      initInventory();
+    }
+    if (typeof initEvents === 'function') {
+      console.log('🔧 Initializing events module...');
+      initEvents();
+    }
+    if (typeof initSettings === 'function') {
+      console.log('🔧 Initializing settings module...');
+      initSettings();
+    }
+    
+    // Initialize remaining UI components
+    if (typeof renderCheckouts === 'function') renderCheckouts();
+    if (typeof renderReports === 'function') renderReports();
+    
+    console.log('✅ All modules initialized');
+  } else {
+    console.error('❌ Database failed to load');
+  }
+});
+
+// Fallback initialization in case the event doesn't fire
+document.addEventListener('DOMContentLoaded', async () => {
+  console.log('🔄 DOM loaded, waiting for database...');
+  
+  // Wait a bit for database to load
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  
+  if (!dbReady) {
+    console.log('⚠️ Database not ready, attempting initialization anyway...');
+    
+    // Initialize all modules
+    if (typeof initInventory === 'function') initInventory();
+    if (typeof initEvents === 'function') initEvents();
+    if (typeof initSettings === 'function') initSettings();
+    
+    // Initialize remaining UI components
+    if (typeof renderCheckouts === 'function') renderCheckouts();
+    if (typeof renderReports === 'function') renderReports();
+  }
+});
+
+/* ========= Tab Navigation ========= */
+$$('.nav .tab').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    $$('.nav .tab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const tab = btn.getAttribute('data-tab');
+    document.querySelectorAll('section').forEach(s=>s.classList.add('hidden'));
+    document.getElementById(tab).classList.remove('hidden');
+  });
+});
+
+/* ========= Inventory ========= */
+// Inventory functions are now in js/inventory.js
+
+// Inventory functions are now in js/inventory.js
+
+/* ========= Events ========= */
+// Events functions are now in js/events.js
+
+/* ========= Checkout & Returns ========= */
+const coEvent=$('#coEvent'), coDue=$('#coDue'), coSearch=$('#coSearch'), coSearchBody=$('#coSearchBody'), coLines=$('#coLines');
+const btnFinalizeCo=$('#btnFinalizeCo'), btnClearCo=$('#btnClearCo');
+let coDraft = {event_id:'',due_date:'',lines:[]}; // lines: {item_id,sku,name,qty,unit_price}
+function fillEventSelects(){
+  const opts = DB.events.map(e=>`<option value="${e.id}">${escapeHtml((e.date||'')+' — '+e.name)}</option>`).join('');
+  coEvent.innerHTML = `<option value="">Select event…</option>`+opts;
+  $('#retCheckout').innerHTML = DB.checkouts.map(c=>{
+    const ev = byId(DB.events, c.event_id)||{name:'[deleted]'};
+    const status = c.returned?'returned':'open';
+    return `<option value="${c.id}">${escapeHtml((c.date||'').slice(0,10)+' — '+ev.name+' — '+c.items.length+' item(s) — '+status)}</option>`;
+  }).join('');
+  // Reports invoice dropdown handled in renderReports
+}
+function refreshCOInventorySearch(){
+  const q=(coSearch.value||'').toLowerCase();
+  const rows=DB.inventory.filter(i=>{
+    return [i.sku,i.name,i.category].join(' ').toLowerCase().includes(q);
+  }).map(i=>`
+    <tr>
+      <td class="mono">${escapeHtml(i.sku)}</td>
+      <td>${escapeHtml(i.name)}</td>
+      <td>${i.qty_available}</td>
+      <td><button class="ghost" data-addco="${i.id}">Add</button></td>
+    </tr>`).join('');
+  coSearchBody.innerHTML = rows || `<tr><td colspan="4" style="color:#9ab">No matches.</td></tr>`;
+}
+coSearch.oninput=refreshCOInventorySearch; 
+function renderCoLines(){
+  const curSym = DB.settings.currency_symbol||'$';
+  coLines.innerHTML = coDraft.lines.map(l=>{
+    const line = Number(l.qty||0)*Number(l.unit_price||0);
+    return `<tr>
+      <td class="mono">${escapeHtml(l.sku)}</td>
+      <td>${escapeHtml(l.name)}</td>
+      <td><input type="number" min="1" step="1" value="${l.qty}" data-qty="${l.item_id}" style="width:80px"></td>
+      <td><input type="number" min="0" step="0.01" value="${l.unit_price}" data-price="${l.item_id}" style="width:110px"></td>
+      <td>${fmtMoney(line,curSym)}</td>
+      <td class="row-actions"><button class="ghost" data-remline="${l.item_id}">Remove</button></td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="6" style="color:#9ab">No lines yet — add items from the left.</td></tr>`;
+  const sub = coDraft.lines.reduce((a,b)=>a + Number(b.qty||0)*Number(b.unit_price||0), 0);
+  const tax = sub * (Number(DB.settings.tax_rate||0)/100);
+  const tot = sub + tax;
+  $('#coSubtotal').textContent = fmtMoney(sub,curSym);
+  $('#coTax').textContent = fmtMoney(tax,curSym);
+  $('#coTotal').textContent = fmtMoney(tot,curSym);
+}
+coSearchBody.addEventListener('click',(e)=>{
+  const addId = e.target.getAttribute('data-addco'); if(!addId) return;
+  const item = byId(DB.inventory, addId); if(!item) return;
+  if(item.qty_available<=0){ alert('No available quantity.'); return; }
+  const exists = coDraft.lines.find(l=>l.item_id===item.id);
+  if(exists){ exists.qty = Math.min((exists.qty||0)+1, item.qty_available); }
+  else { coDraft.lines.push({item_id:item.id, sku:item.sku, name:item.name, qty:1, unit_price:Number(item.price||0)}); }
+  renderCoLines();
+});
+coLines.addEventListener('input',(e)=>{
+  const qtyId = e.target.getAttribute('data-qty');
+  const priceId = e.target.getAttribute('data-price');
+  if(qtyId){
+    const it = byId(DB.inventory, qtyId); const line = coDraft.lines.find(l=>l.item_id===qtyId);
+    let v = Math.max(1, Math.floor(Number(e.target.value||1)));
+    if(it) v = Math.min(v, it.qty_available);
+    line.qty = v; e.target.value = v;
+    renderCoLines();
+  }
+  if(priceId){
+    const line = coDraft.lines.find(l=>l.item_id===priceId);
+    let v = Math.max(0, Number(e.target.value||0)); line.unit_price = v; e.target.value = v;
+    renderCoLines();
+  }
+});
+coLines.addEventListener('click',(e)=>{
+  const rem = e.target.getAttribute('data-remline');
+  if(rem){ coDraft.lines = coDraft.lines.filter(l=>l.item_id!==rem); renderCoLines(); }
+});
+btnClearCo.onclick=()=>{ coDraft={event_id:'',due_date:'',lines:[]}; coEvent.value=''; coDue.value=''; renderCoLines(); };
+btnFinalizeCo.onclick=()=>{
+  if(!coEvent.value){ alert('Choose an event.'); return; }
+  if(coDraft.lines.length===0){ alert('Add at least one line.'); return; }
+  // ensure availability
+  for(const l of coDraft.lines){
+    const it = byId(DB.inventory, l.item_id);
+    if(!it || it.qty_available<l.qty){ alert(`Insufficient availability for ${it?.name||l.sku}.`); return; }
+  }
+  // decrement inventory
+  for(const l of coDraft.lines){
+    const it = byId(DB.inventory, l.item_id); it.qty_available -= l.qty; it.updated_at=nowISO();
+  }
+  const subtotal = coDraft.lines.reduce((a,b)=>a+(b.qty*b.unit_price),0);
+  const tax = subtotal*(Number(DB.settings.taxRate||0)/100);
+  const total = subtotal+tax;
+  const co = {
+    id: uid(),
+    event_id: coEvent.value,
+    date: nowISO(),
+    due_date: coDue.value||'',
+    items: coDraft.lines.map(l=>({item_id:l.item_id,sku:l.sku,name:l.name,qty:Number(l.qty),unit_price:Number(l.unit_price)})),
+    subtotal,tax,total,returns:[],returned:false
+  };
+  DB.checkouts.unshift(co);
+  const ev = byId(DB.events, co.event_id);
+  DB.activity.unshift({date:nowISO(), type:'checkout', ref:co.id, details:`${ev?.name||'Event'} • ${co.items.length} item(s)`});
+  save();
+  // reset builder
+  coDraft={event_id:'',due_date:'',lines:[]}; coEvent.value=''; coDue.value='';
+  renderCoLines(); refreshCOInventorySearch(); renderReports(); renderCheckouts();
+  alert('Checkout created. You can view/print its invoice in Reports.');
+};
+
+function outQtyForItem(itemId){
+  let out=0;
+  for(const co of DB.checkouts){
+    for(const l of co.items){ if(l.item_id===itemId) out += l.qty; }
+    for(const r of (co.returns||[])){ if(r.item_id===itemId) out -= r.qty; }
+  }
+  return out;
+}
+
+/* Returns */
+const retCheckout=$('#retCheckout'), retBody=$('#retBody');
+$('#btnLoadReturns').onclick = renderReturns;
+function renderReturns(){
+  const id = retCheckout.value; retBody.innerHTML='';
+  const co = byId(DB.checkouts, id);
+  if(!co){ retBody.innerHTML = `<tr><td colspan="5" style="color:#9ab">Choose a checkout.</td></tr>`; return; }
+  const returnedMap = {};
+  for(const r of (co.returns||[])){ returnedMap[r.item_id]=(returnedMap[r.item_id]||0)+Number(r.qty||0); }
+  retBody.innerHTML = co.items.map(l=>{
+    const ret = returnedMap[l.item_id]||0;
+    const out = l.qty - ret;
+    return `<tr>
+      <td class="mono">${escapeHtml(l.sku)}</td>
+      <td>${escapeHtml(l.name)}</td>
+      <td>${l.qty}</td>
+      <td>${ret}</td>
+      <td><input type="number" min="0" max="${out}" step="1" value="${out?out:0}" data-ret="${l.item_id}" style="width:80px" ${out?'':'disabled'}></td>
+    </tr>`;
+  }).join('');
+}
+$('#btnProcessReturns').onclick = ()=>{
+  const id = retCheckout.value; const co = byId(DB.checkouts,id);
+  if(!co){ alert('Choose a checkout first.'); return; }
+  const retInputs = Array.from(retBody.querySelectorAll('input[data-ret]'));
+  if(retInputs.length===0){ alert('Nothing to return.'); return; }
+  let any=false;
+  for(const inp of retInputs){
+    const itemId = inp.getAttribute('data-ret');
+    const qty = Math.max(0, Math.floor(Number(inp.value||0)));
+    if(qty>0){
+      const it = byId(DB.inventory, itemId); if(it){ it.qty_available += qty; it.updated_at=nowISO(); }
+      co.returns.push({item_id:itemId, qty, date:nowISO()});
+      any=true;
+    }
+  }
+  if(!any){ alert('Enter return quantities.'); return; }
+  // set returned flag if all returned
+  let allReturned = true;
+  for(const l of co.items){
+    const ret = co.returns.filter(r=>r.item_id===l.item_id).reduce((a,b)=>a+Number(b.qty||0),0);
+    if(ret<l.qty){ allReturned=false; break; }
+  }
+  co.returned = allReturned;
+  const ev = byId(DB.events, co.event_id);
+  DB.activity.unshift({date:nowISO(), type:'return', ref:co.id, details:`${ev?.name||'Event'} • processed returns`});
+  save(); renderReturns(); renderInventory(); renderReports();
+};
+
+/* ========= Reports & Invoices ========= */
+const actCount=$('#actCount'), actBody=$('#actBody'), invoiceSelect=$('#invoiceSelect'), invoiceArea=$('#invoiceArea'), togglePrices=$('#togglePrices');
+function renderReports(){
+  // Stats
+  $('#statItems').textContent = DB.inventory.length;
+  $('#statEvents').textContent = DB.events.length;
+  $('#statCO').textContent = DB.checkouts.length;
+  $('#statLow').textContent = DB.inventory.filter(i=>i.qty_available<= (i.safety_stock||0)).length;
+  // Activity (last 30 days)
+  const since = Date.now() - 1000*60*60*24*30;
+  const acts = DB.activity.filter(a => new Date(a.date).getTime() >= since);
+  actCount.textContent = `${acts.length} records`;
+  actBody.innerHTML = acts.slice(0,200).map(a=>`
+    <tr>
+      <td>${escapeHtml(a.date.slice(0,10))}</td>
+      <td><span class="tag">${escapeHtml(a.type)}</span></td>
+      <td>${escapeHtml(a.ref||'')}</td>
+      <td>${escapeHtml(a.details||'')}</td>
+    </tr>`).join('');
+  // Invoice dropdown
+  invoiceSelect.innerHTML = DB.checkouts.map(co=>{
+    const ev = byId(DB.events, co.event_id) || {name:'[deleted]'};
+    const label = `${(co.date||'').slice(0,10)} — ${ev.name} — ${co.items.length} item(s)`;
+    return `<option value="${co.id}">${escapeHtml(label)}</option>`;
+  }).join('');
+}
+function openInvoice(checkoutId){
+  const co = byId(DB.checkouts, checkoutId);
+  if(!co){ alert('Invoice not found'); return; }
+  const withPrices = togglePrices.checked;
+  const ev = byId(DB.events, co.event_id) || {};
+  const s = DB.settings || {};
+  const biz = s.business || {};
+  const currency = s.currencySymbol || '$';
+  const lineRows = co.items.map(l=>{
+    const lineTotal = (l.unit_price||0) * (l.qty||0);
+    return `<tr>
+      <td>${escapeHtml(l.sku||'')}</td>
+      <td>${escapeHtml(l.name||'')}</td>
+      <td>${l.qty}</td>
+      ${withPrices ? `<td>${currency}${Number(l.unit_price||0).toFixed(2)}</td><td>${currency}${lineTotal.toFixed(2)}</td>` : ``}
+    </tr>`;
+  }).join('');
+  const totalsBlock = withPrices?`
+    <div class="totals">
+      <table>
+        <tr><th>Subtotal</th><td style="text-align:right">${fmtMoney(co.subtotal||0,currency)}</td></tr>
+        <tr><th>Tax</th><td style="text-align:right">${fmtMoney(co.tax||0,currency)}</td></tr>
+        <tr><th>Total</th><td style="text-align:right"><strong>${fmtMoney(co.total||0,currency)}</strong></td></tr>
+      </table>
+    </div>`:'';
+  invoiceArea.classList.add('active');
+  invoiceArea.innerHTML = `
+    <div class="invoice">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+        <div>
+          <h2>${escapeHtml(biz.name || 'Invoice')}</h2>
+          <small>${escapeHtml(biz.address||'')}</small><br>
+          <small>${escapeHtml(biz.phone||'')}</small><br>
+          <small>${escapeHtml(biz.email||'')}</small>
+        </div>
+        <div style="text-align:right">
+          ${biz.logo ? `<img src="${biz.logo}" alt="logo" style="max-height:60px;max-width:220px;object-fit:contain">` : ''}
+          <div><small><strong>Invoice #</strong> ${escapeHtml(co.id)}</small></div>
+          <div><small><strong>Date</strong> ${(co.date||'').slice(0,10)}</small></div>
+          <div><small><strong>Due</strong> ${escapeHtml(co.due_date||'')}</small></div>
+        </div>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:24px;flex-wrap:wrap">
+        <div>
+          <strong>Bill To</strong><br>
+          <div>${escapeHtml(ev.client||'')}</div>
+          <small>${escapeHtml(ev.contact||'')}</small>
+        </div>
+        <div>
+          <strong>Event</strong><br>
+          <div>${escapeHtml(ev.name||'')}</div>
+          <small>${escapeHtml(ev.location||'')}</small><br>
+          <small>${escapeHtml(ev.date||'')}</small>
+        </div>
+      </div>
+      <table style="margin-top:16px">
+        <thead>
+          <tr>
+            <th style="width:140px">SKU</th>
+            <th>Item</th>
+            <th style="width:80px">Qty</th>
+            ${withPrices ? `<th style="width:120px">Unit</th><th style="width:120px">Line</th>` : ``}
+          </tr>
+        </thead>
+        <tbody>${lineRows}</tbody>
+      </table>
+      ${totalsBlock}
+      <div style="margin-top:12px"><small>Notes: ${escapeHtml(ev.notes||'')}</small></div>
+    </div>`;
+}
+$('#btnOpenInvoice').onclick = ()=>{ const id = invoiceSelect.value; if(!id){alert('Choose an invoice');return;} openInvoice(id); };
+$('#btnPrintInvoice').onclick = ()=>{ if(!invoiceArea.classList.contains('active')){ const id=invoiceSelect.value; if(id) openInvoice(id);} window.print(); };
+togglePrices.addEventListener('change', ()=>{ const id=invoiceSelect.value; if(id) openInvoice(id); });
+
+/* ========= Settings ========= */
+// Settings functions are now in js/settings.js
+
+
+
+/* ========= Checkout: wiring + reports refreshers ========= */
+function renderCheckouts(){
+  fillEventSelects();
+  refreshCOInventorySearch();
+  renderCoLines();
+  renderReturns();
+}
+
+/* ========= Initial Render ========= */
+// Initialization is now handled in the DOMContentLoaded event above
+</script>
+</body>
+</html>
