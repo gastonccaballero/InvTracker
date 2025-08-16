@@ -340,6 +340,7 @@ async function refreshData() {
   if (typeof renderCustomers === 'function') renderCustomers();
   if (typeof renderCheckouts === 'function') renderCheckouts();
   if (typeof renderReports === 'function') renderReports();
+  if (typeof renderDashboard === 'function') renderDashboard();
 }
 
 // Initialize data loading when DOM is ready

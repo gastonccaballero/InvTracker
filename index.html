@@ -357,24 +357,7 @@ footer{opacity:.7;margin-top:10px;font-size:12px}
   <!-- REPORTS -->
   <section id="tab-reports" class="grid hidden">
     <div class="cards">
-      <div class="card span6">
-        <h3>Quick Stats</h3>
-        <div class="flex">
-          <div class="badge">Items: <span id="statItems">0</span></div>
-          <div class="badge">Low stock: <span id="statLow">0</span></div>
-          <div class="badge">Events: <span id="statEvents">0</span></div>
-          <div class="badge">Checkouts: <span id="statCO">0</span></div>
-          <div class="badge">Customers: <span id="statCustomers">0</span></div>
-        </div>
-        <hr class="sep">
-        <h3 style="margin-top:0">Recent Activity <small class="mono" id="actCount"></small></h3>
-        <table class="table">
-          <thead><tr><th>Date</th><th>Type</th><th>Ref</th><th>Details</th></tr></thead>
-          <tbody id="actBody"></tbody>
-        </table>
-      </div>
-
-      <div class="card span6">
+      <div class="card span12">
         <div class="flex" style="align-items:center">
           <h3>Invoices</h3>
           <div class="right"></div>
@@ -913,7 +896,8 @@ btnFinalizeCo.onclick=async()=>{
     coEvent.value=''; coDue.value=''; coCustomer.value=''; coManualDiscType.value='none'; coManualDiscValue.value='0';
     renderCoLines(); 
     if (typeof renderInventory === 'function') renderInventory(); // Refresh inventory display
-    renderReports(); 
+    renderReports();
+    if (typeof renderDashboard === 'function') renderDashboard();
     renderCheckouts();
   } catch (error) {
     console.error('Failed to create checkout:', error);
@@ -991,6 +975,7 @@ $('#btnProcessReturns').onclick = async()=>{
     if (retBody) retBody.innerHTML = `<tr><td colspan="5" style="color:#9ab">Choose a checkout.</td></tr>`;
     if (typeof renderInventory === 'function') renderInventory(); // Refresh inventory display
     renderReports();
+    if (typeof renderDashboard === 'function') renderDashboard();
   } catch (error) {
     console.error('Failed to process returns:', error);
     alert('Failed to process returns. Please try again.');
@@ -998,26 +983,31 @@ $('#btnProcessReturns').onclick = async()=>{
 };
 
 /* ========= Reports & Invoices ========= */
-const actCount=$('#actCount'), actBody=$('#actBody'), invoiceSelect=$('#invoiceSelect'), invoiceArea=$('#invoiceArea'), togglePrices=$('#togglePrices');
-function renderReports(){
-  // Stats
-  $('#statItems').textContent = (DB.inventory||[]).length;
-  $('#statEvents').textContent = (DB.events||[]).length;
-  $('#statCO').textContent = (DB.checkouts||[]).length;
-  $('#statLow').textContent = (DB.inventory||[]).filter(i=>i.qty_available<= (i.safety_stock||0)).length;
-  $('#statCustomers').textContent = (DB.customers||[]).length;
-  // Activity (last 30 days)
-  const since = Date.now() - 1000*60*60*24*30;
-  const acts = (DB.activity||[]).filter(a => new Date(a.date).getTime() >= since);
-  actCount.textContent = `${acts.length} records`;
-  actBody.innerHTML = acts.slice(0,200).map(a=>`
+const invoiceSelect=$('#invoiceSelect'), invoiceArea=$('#invoiceArea'), togglePrices=$('#togglePrices');
+
+function renderDashboard(){
+  // Dashboard Quick Stats
+  const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+  setText('dbStatItems', (DB.inventory||[]).length);
+  setText('dbStatEvents', (DB.events||[]).length);
+  setText('dbStatCO', (DB.checkouts||[]).length);
+  setText('dbStatLow', (DB.inventory||[]).filter(i=>i.qty_available <= (i.safety_stock||0)).length);
+  setText('dbStatCustomers', (DB.customers||[]).length);
+  // Dashboard Recent Activity (all entries)
+  const acts = (DB.activity||[]);
+  const cnt = document.getElementById('dbActCount'); if (cnt) cnt.textContent = `${acts.length} records`;
+  const body = document.getElementById('dbActBody');
+  if (body) body.innerHTML = acts.map(a=>`
     <tr>
-      <td>${escapeHtml(a.date.slice(0,10))}</td>
-      <td><span class="tag">${escapeHtml(a.type)}</span></td>
+      <td>${escapeHtml((a.date||'').slice(0,10))}</td>
+      <td><span class="tag">${escapeHtml(a.type||'')}</span></td>
       <td>${escapeHtml(a.ref||'')}</td>
       <td>${escapeHtml(a.details||'')}</td>
     </tr>`).join('');
-  // Invoice dropdown
+}
+
+function renderReports(){
+  // Only invoices now
   invoiceSelect.innerHTML = (DB.checkouts||[]).map(co=>{
     const ev = byId(DB.events||[], co.event_id) || {name:'[deleted]'};
     const label = `${(co.date||'').slice(0,10)} — ${ev.name} — ${(co.items||[]).length} item(s)`;
