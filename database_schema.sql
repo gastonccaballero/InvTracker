@@ -55,13 +55,51 @@ CREATE TABLE IF NOT EXISTS events (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Customers table
+CREATE TABLE IF NOT EXISTS customers (
+    id VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    contact VARCHAR(255),
+    email VARCHAR(255),
+    phone VARCHAR(50),
+    discount_type VARCHAR(20) DEFAULT 'none', -- none | percent | amount
+    discount_value DECIMAL(10,2) DEFAULT 0,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Migration-safe alterations for existing databases
+-- Ensure new checkout columns exist even if table was created previously
+ALTER TABLE checkouts ADD COLUMN IF NOT EXISTS customer_id VARCHAR(50);
+ALTER TABLE checkouts ADD COLUMN IF NOT EXISTS discount_customer DECIMAL(10,2) DEFAULT 0;
+ALTER TABLE checkouts ADD COLUMN IF NOT EXISTS discount_manual DECIMAL(10,2) DEFAULT 0;
+ALTER TABLE checkouts ADD COLUMN IF NOT EXISTS discount_total DECIMAL(10,2) DEFAULT 0;
+
+-- Add foreign key constraint for customer_id if not present
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'fk_checkouts_customer'
+  ) THEN
+    ALTER TABLE checkouts
+      ADD CONSTRAINT fk_checkouts_customer
+      FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL;
+  END IF;
+END $$;
+
 -- Checkouts table (main checkout records)
 CREATE TABLE IF NOT EXISTS checkouts (
     id VARCHAR(50) PRIMARY KEY,
     event_id VARCHAR(50) REFERENCES events(id) ON DELETE SET NULL,
+    customer_id VARCHAR(50) REFERENCES customers(id) ON DELETE SET NULL,
     date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     due_date DATE,
     subtotal DECIMAL(10,2) DEFAULT 0,
+    discount_customer DECIMAL(10,2) DEFAULT 0,
+    discount_manual DECIMAL(10,2) DEFAULT 0,
+    discount_total DECIMAL(10,2) DEFAULT 0,
     tax DECIMAL(10,2) DEFAULT 0,
     total DECIMAL(10,2) DEFAULT 0,
     returned BOOLEAN DEFAULT FALSE,
@@ -105,6 +143,9 @@ CREATE INDEX IF NOT EXISTS idx_inventory_category ON inventory(category);
 CREATE INDEX IF NOT EXISTS idx_inventory_available ON inventory(qty_available);
 CREATE INDEX IF NOT EXISTS idx_events_date ON events(date);
 CREATE INDEX IF NOT EXISTS idx_events_status ON events(status);
+CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name);
+CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email);
+CREATE INDEX IF NOT EXISTS idx_checkouts_customer ON checkouts(customer_id);
 CREATE INDEX IF NOT EXISTS idx_checkouts_event ON checkouts(event_id);
 CREATE INDEX IF NOT EXISTS idx_checkouts_date ON checkouts(date);
 CREATE INDEX IF NOT EXISTS idx_checkout_items_checkout ON checkout_items(checkout_id);
@@ -122,15 +163,30 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Triggers to automatically update updated_at
-CREATE TRIGGER update_inventory_updated_at BEFORE UPDATE ON inventory
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- Triggers to automatically update updated_at (idempotent)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_inventory_updated_at') THEN
+    CREATE TRIGGER update_inventory_updated_at BEFORE UPDATE ON inventory
+      FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END $$;
 
-CREATE TRIGGER update_events_updated_at BEFORE UPDATE ON events
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_events_updated_at') THEN
+    CREATE TRIGGER update_events_updated_at BEFORE UPDATE ON events
+      FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END $$;
 
-CREATE TRIGGER update_checkouts_updated_at BEFORE UPDATE ON checkouts
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_checkouts_updated_at') THEN
+    CREATE TRIGGER update_checkouts_updated_at BEFORE UPDATE ON checkouts
+      FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END $$;
 
 -- Function to update inventory available quantity when items are checked out
 CREATE OR REPLACE FUNCTION update_inventory_on_checkout()
@@ -159,11 +215,21 @@ END;
 $$ language 'plpgsql';
 
 -- Triggers for inventory updates
-CREATE TRIGGER trigger_inventory_checkout AFTER INSERT ON checkout_items
-    FOR EACH ROW EXECUTE FUNCTION update_inventory_on_checkout();
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trigger_inventory_checkout') THEN
+    CREATE TRIGGER trigger_inventory_checkout AFTER INSERT ON checkout_items
+      FOR EACH ROW EXECUTE FUNCTION update_inventory_on_checkout();
+  END IF;
+END $$;
 
-CREATE TRIGGER trigger_inventory_return AFTER INSERT ON returns
-    FOR EACH ROW EXECUTE FUNCTION update_inventory_on_return();
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trigger_inventory_return') THEN
+    CREATE TRIGGER trigger_inventory_return AFTER INSERT ON returns
+      FOR EACH ROW EXECUTE FUNCTION update_inventory_on_return();
+  END IF;
+END $$;
 
 -- Insert default settings
 INSERT INTO settings (id, currency_symbol, tax_rate, business_name, business_address, business_phone, business_email, business_logo)

@@ -6,6 +6,7 @@ let DB = {
   inventory: [],
   events: [],
   checkouts: [],
+  customers: [],
   activity: []
 };
 
@@ -141,6 +142,31 @@ class InvTrackerAPI {
   async getStats() {
     return this.request('/stats');
   }
+
+  // Customers
+  async getCustomers() {
+    return this.request('/customers');
+  }
+
+  async createCustomer(customer) {
+    return this.request('/customers', {
+      method: 'POST',
+      body: JSON.stringify(customer)
+    });
+  }
+
+  async updateCustomer(id, customer) {
+    return this.request(`/customers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(customer)
+    });
+  }
+
+  async deleteCustomer(id) {
+    return this.request(`/customers/${id}`, {
+      method: 'DELETE'
+    });
+  }
 }
 
 // Global API instance
@@ -159,12 +185,16 @@ async function loadData() {
       api.getCheckouts(),
       api.getActivity()
     ]);
+    // Customers loaded separately and safely (endpoint may not exist yet)
+    let customers = [];
+    try { customers = await api.getCustomers(); } catch (e) { customers = []; }
 
     // Update global DB object
     DB.settings = settings || {};
     DB.inventory = inventory || [];
     DB.events = events || [];
     DB.checkouts = checkouts || [];
+    DB.customers = customers || [];
     DB.activity = activity || [];
 
     console.log('Data loaded successfully:', {
@@ -172,6 +202,7 @@ async function loadData() {
       inventory: DB.inventory.length,
       events: DB.events.length,
       checkouts: DB.checkouts.length,
+      customers: DB.customers.length,
       activity: DB.activity.length
     });
 
@@ -282,6 +313,7 @@ async function refreshData() {
   // Trigger UI updates
   if (typeof renderInventory === 'function') renderInventory();
   if (typeof renderEvents === 'function') renderEvents();
+  if (typeof renderCustomers === 'function') renderCustomers();
   if (typeof renderCheckouts === 'function') renderCheckouts();
   if (typeof renderReports === 'function') renderReports();
 }
