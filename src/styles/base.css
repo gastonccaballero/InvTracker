@@ -1,0 +1,28 @@
+*{box-sizing:border-box}html,body{height:100%}body{margin:0;background:linear-gradient(180deg,#08101a,#0b0f14 25%,#0b0f14);color:var(--text);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial}
+a{color:var(--acc)}
+.container{max-width:1200px;margin:0 auto;padding:24px}
+.header{display:flex;align-items:center;gap:12px;justify-content:space-between;margin-bottom:16px}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:linear-gradient(135deg,var(--acc),#7b66ff)}
+h1{font-size:18px;margin:0}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap}
+.grid{display:grid;gap:14px}
+.cards{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
+.card{grid-column:span 12;background:var(--card);border:1px solid #ffffff14;border-radius:var(--radius);padding:14px}
+.card h3{margin:0 0 10px 0;font-size:16px}
+@media(min-width:900px){.card.span6{grid-column:span 6}.card.span4{grid-column:span 4}.card.span8{grid-column:span 8}}
+.hidden{display:none!important}
+.flex{display:flex;gap:10px;flex-wrap:wrap}
+.right{margin-left:auto}
+.searchbar{display:flex;gap:8px;align-items:center}
+small.mono{font:12px/1.3 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#b9c3d6}
+hr.sep{border:none;border-top:1px solid #ffffff14;margin:8px 0}
+footer{opacity:.7;margin-top:10px;font-size:12px}
+@media print{
+  body{background:white}
+  .header,.nav,.toolbar,.no-print{display:none!important}
+  #invoiceArea{display:block}
+  #invoiceArea .invoice{box-shadow:none;border:0;padding:0}
+}
+
+

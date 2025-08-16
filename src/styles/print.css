@@ -1,0 +1,8 @@
+@media print{
+  body{background:white}
+  .header,.nav,.toolbar,.no-print{display:none!important}
+  #invoiceArea{display:block}
+  #invoiceArea .invoice{box-shadow:none;border:0;padding:0}
+}
+
+
