@@ -79,6 +79,7 @@ ALTER TABLE checkouts ADD COLUMN IF NOT EXISTS customer_id VARCHAR(50);
 ALTER TABLE checkouts ADD COLUMN IF NOT EXISTS discount_customer DECIMAL(10,2) DEFAULT 0;
 ALTER TABLE checkouts ADD COLUMN IF NOT EXISTS discount_manual DECIMAL(10,2) DEFAULT 0;
 ALTER TABLE checkouts ADD COLUMN IF NOT EXISTS discount_total DECIMAL(10,2) DEFAULT 0;
+ALTER TABLE checkouts ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT FALSE;
 
 -- Ensure image_path column exists for inventory
 ALTER TABLE inventory ADD COLUMN IF NOT EXISTS image_path TEXT;

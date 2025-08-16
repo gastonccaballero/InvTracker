@@ -147,7 +147,8 @@ footer{opacity:.7;margin-top:10px;font-size:12px}
     <button class="tab active" data-tab="tab-inventory">Inventory</button>
     <button class="tab" data-tab="tab-events">Events</button>
     <button class="tab" data-tab="tab-customers">Customers</button>
-    <button class="tab" data-tab="tab-checkout">Checkout & Returns</button>
+    <button class="tab" data-tab="tab-checkout">Checkouts</button>
+    <button class="tab" data-tab="tab-returns">Returns</button>
     <button class="tab" data-tab="tab-reports">Reports & Invoices</button>
     <div class="right"></div>
   </div>
@@ -223,10 +224,10 @@ footer{opacity:.7;margin-top:10px;font-size:12px}
     </div>
   </section>
 
-  <!-- CHECKOUT -->
+  <!-- CHECKOUTS -->
   <section id="tab-checkout" class="grid hidden">
     <div class="cards">
-      <div class="card span8">
+      <div class="card span12">
         <h3>Create Checkout</h3>
         <div class="flex">
           <select id="coEvent"></select>
@@ -273,9 +274,14 @@ footer{opacity:.7;margin-top:10px;font-size:12px}
           <button id="btnFinalizeCo" class="green">Finalize Checkout</button>
         </div>
       </div>
+    </div>
+  </section>
 
-      <div class="card span4">
-        <h3>Returns</h3>
+  <!-- RETURNS -->
+  <section id="tab-returns" class="grid hidden">
+    <div class="cards">
+      <div class="card span12">
+        <h3>Process Returns</h3>
         <div class="flex">
           <select id="retCheckout"></select>
           <button id="btnLoadReturns" class="ghost">Load</button>
@@ -632,11 +638,14 @@ let coDraft = {event_id:'',due_date:'',lines:[], customer_id:'', discount:{type:
 function fillEventSelects(){
   const opts = (DB.events||[]).map(e=>`<option value="${e.id}">${escapeHtml((e.date||'')+' — '+e.name)}</option>`).join('');
   coEvent.innerHTML = `<option value="">Select event…</option>`+opts;
-  $('#retCheckout').innerHTML = (DB.checkouts||[]).map(c=>{
+  const retOpts = (DB.checkouts||[]).map(c=>{
     const ev = byId(DB.events||[], c.event_id)||{name:'[deleted]'};
     const status = c.returned?'returned':'open';
     return `<option value="${c.id}">${escapeHtml((c.date||'').slice(0,10)+' — '+ev.name+' — '+(c.items||[]).length+' item(s) — '+status)}</option>`;
   }).join('');
+  const prevRet = (retCheckout && retCheckout.value) || '';
+  $('#retCheckout').innerHTML = `<option value="">Select checkout…</option>` + retOpts;
+  if (retCheckout) retCheckout.value = prevRet;
   // Customers
   coCustomer.innerHTML = `<option value="">Select customer…</option>` + (DB.customers||[]).map(c=>`<option value="${c.id}">${escapeHtml(c.name||'')}</option>`).join('');
 }
@@ -865,6 +874,10 @@ function outQtyForItem(itemId){
 /* Returns */
 const retCheckout=$('#retCheckout'), retBody=$('#retBody');
 $('#btnLoadReturns').onclick = renderReturns;
+retCheckout?.addEventListener('change', ()=>{
+  // Only load items when user explicitly clicks Load
+  if (retBody) retBody.innerHTML = `<tr><td colspan="5" style="color:#9ab">Click Load to view items.</td></tr>`;
+});
 function renderReturns(){
   const id = retCheckout.value; retBody.innerHTML='';
   const co = byId(DB.checkouts||[], id);
@@ -909,9 +922,14 @@ $('#btnProcessReturns').onclick = async()=>{
     
     // Refresh inventory from database to get updated quantities
     DB.inventory = await api.getInventory();
+    // Refresh checkouts to exclude archived ones
+    DB.checkouts = await api.getCheckouts();
     
     alert('Returns processed successfully!');
-    renderReturns(); 
+    // Refresh dropdown options and clear UI
+    fillEventSelects();
+    if (retCheckout) retCheckout.value = '';
+    if (retBody) retBody.innerHTML = `<tr><td colspan="5" style="color:#9ab">Choose a checkout.</td></tr>`;
     if (typeof renderInventory === 'function') renderInventory(); // Refresh inventory display
     renderReports();
   } catch (error) {
@@ -1027,11 +1045,32 @@ togglePrices.addEventListener('change', ()=>{ const id=invoiceSelect.value; if(i
 
 
 
-/* ========= Checkout: wiring + reports refreshers ========= */
+/* ========= Checkout/Returns: wiring + reports refreshers ========= */
 function renderCheckouts(){
   fillEventSelects();
   renderCoLines();
-  renderReturns();
+}
+
+function renderReturns(){
+  // if a checkout is preselected, refresh the table; otherwise just ensure selects are filled
+  fillEventSelects();
+  const id = retCheckout?.value; if (!id) return;
+  retBody && (retBody.innerHTML='');
+  const co = byId(DB.checkouts||[], id);
+  if(!co){ if(retBody) retBody.innerHTML = `<tr><td colspan="5" style="color:#9ab">Choose a checkout.</td></tr>`; return; }
+  const returnedMap = {};
+  for(const r of (co.returns||[])){ returnedMap[r.item_id]=(returnedMap[r.item_id]||0)+Number(r.qty||0); }
+  if (retBody) retBody.innerHTML = (co.items||[]).map(l=>{
+    const ret = returnedMap[l.item_id]||0;
+    const out = l.qty - ret;
+    return `<tr>
+      <td class="mono">${escapeHtml(l.sku)}</td>
+      <td>${escapeHtml(l.name)}</td>
+      <td>${l.qty}</td>
+      <td>${ret}</td>
+      <td><input type="number" min="0" max="${out}" step="1" value="${out?out:0}" data-ret="${l.item_id}" style="width:80px" ${out?'':'disabled'}></td>
+    </tr>`;
+  }).join('');
 }
 
 /* ========= Initial Render ========= */

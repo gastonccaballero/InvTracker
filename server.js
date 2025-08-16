@@ -301,12 +301,13 @@ app.delete('/api/customers/:id', async (req, res) => {
 // Checkouts
 app.get('/api/checkouts', async (req, res) => {
   try {
-    // Get all checkouts with event and customer info
+    // Get all non-archived checkouts with event and customer info
     const checkoutsResult = await pool.query(`
       SELECT c.*, e.name as event_name, cu.name as customer_name
       FROM checkouts c 
       LEFT JOIN events e ON c.event_id = e.id 
       LEFT JOIN customers cu ON c.customer_id = cu.id
+      WHERE COALESCE(c.archived, FALSE) = FALSE
       ORDER BY c.date DESC
     `);
     
@@ -428,24 +429,11 @@ app.post('/api/checkouts/:id/returns', async (req, res) => {
       );
     }
     
-    // Check if all items are returned
-    const checkoutItemsResult = await client.query(
-      `SELECT ci.item_id, ci.qty, COALESCE(SUM(r.qty), 0) as returned_qty
-       FROM checkout_items ci
-       LEFT JOIN returns r ON ci.checkout_id = r.checkout_id AND ci.item_id = r.item_id
-       WHERE ci.checkout_id = $1
-       GROUP BY ci.item_id, ci.qty`,
+    // Mark checkout as returned and archived (we don't need it anymore)
+    await client.query(
+      'UPDATE checkouts SET returned = true, archived = true WHERE id = $1',
       [id]
     );
-    
-    const allReturned = checkoutItemsResult.rows.every(row => row.qty <= row.returned_qty);
-    
-    if (allReturned) {
-      await client.query(
-        'UPDATE checkouts SET returned = true WHERE id = $1',
-        [id]
-      );
-    }
     
     // Get event name for logging
     const eventResult = await client.query(
@@ -461,7 +449,7 @@ app.post('/api/checkouts/:id/returns', async (req, res) => {
     );
     
     await client.query('COMMIT');
-    res.json({ success: true, allReturned });
+    res.json({ success: true });
   } catch (err) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
