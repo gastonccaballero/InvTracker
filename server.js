@@ -301,14 +301,55 @@ app.delete('/api/customers/:id', async (req, res) => {
 // Checkouts
 app.get('/api/checkouts', async (req, res) => {
   try {
-    const result = await pool.query(`
+    // Get all checkouts with event and customer info
+    const checkoutsResult = await pool.query(`
       SELECT c.*, e.name as event_name, cu.name as customer_name
       FROM checkouts c 
       LEFT JOIN events e ON c.event_id = e.id 
       LEFT JOIN customers cu ON c.customer_id = cu.id
       ORDER BY c.date DESC
     `);
-    res.json(result.rows);
+    
+    // Get checkout items for all checkouts
+    const itemsResult = await pool.query(`
+      SELECT checkout_id, item_id, sku, name, qty, unit_price
+      FROM checkout_items
+      ORDER BY checkout_id
+    `);
+    
+    // Get returns for all checkouts
+    const returnsResult = await pool.query(`
+      SELECT checkout_id, item_id, qty, return_date as date
+      FROM returns
+      ORDER BY checkout_id, return_date
+    `);
+    
+    // Group items and returns by checkout_id
+    const itemsByCheckout = {};
+    const returnsByCheckout = {};
+    
+    itemsResult.rows.forEach(item => {
+      if (!itemsByCheckout[item.checkout_id]) {
+        itemsByCheckout[item.checkout_id] = [];
+      }
+      itemsByCheckout[item.checkout_id].push(item);
+    });
+    
+    returnsResult.rows.forEach(returnItem => {
+      if (!returnsByCheckout[returnItem.checkout_id]) {
+        returnsByCheckout[returnItem.checkout_id] = [];
+      }
+      returnsByCheckout[returnItem.checkout_id].push(returnItem);
+    });
+    
+    // Combine checkout data with items and returns
+    const checkouts = checkoutsResult.rows.map(checkout => ({
+      ...checkout,
+      items: itemsByCheckout[checkout.id] || [],
+      returns: returnsByCheckout[checkout.id] || []
+    }));
+    
+    res.json(checkouts);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -474,18 +515,20 @@ app.get('/api/activity', async (req, res) => {
 // Stats
 app.get('/api/stats', async (req, res) => {
   try {
-    const [inventoryCount, lowStockCount, eventsCount, checkoutsCount] = await Promise.all([
+    const [inventoryCount, lowStockCount, eventsCount, checkoutsCount, customersCount] = await Promise.all([
       pool.query('SELECT COUNT(*) as count FROM inventory'),
       pool.query('SELECT COUNT(*) as count FROM inventory WHERE qty_available <= safety_stock'),
       pool.query('SELECT COUNT(*) as count FROM events'),
-      pool.query('SELECT COUNT(*) as count FROM checkouts')
+      pool.query('SELECT COUNT(*) as count FROM checkouts'),
+      pool.query('SELECT COUNT(*) as count FROM customers')
     ]);
     
     res.json({
       items: parseInt(inventoryCount.rows[0].count),
       low: parseInt(lowStockCount.rows[0].count),
       events: parseInt(eventsCount.rows[0].count),
-      checkouts: parseInt(checkoutsCount.rows[0].count)
+      checkouts: parseInt(checkoutsCount.rows[0].count),
+      customers: parseInt(customersCount.rows[0].count)
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

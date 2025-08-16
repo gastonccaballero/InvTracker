@@ -36,10 +36,14 @@ CREATE TABLE IF NOT EXISTS inventory (
     price DECIMAL(10,2) DEFAULT 0,
     tags TEXT[], -- Array of tags
     notes TEXT,
+    image_path TEXT, -- Path to uploaded image
     archived BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Migration-safe addition of image_path column
+ALTER TABLE inventory ADD COLUMN IF NOT EXISTS image_path TEXT;
 
 -- Events table
 CREATE TABLE IF NOT EXISTS events (
@@ -75,6 +79,9 @@ ALTER TABLE checkouts ADD COLUMN IF NOT EXISTS customer_id VARCHAR(50);
 ALTER TABLE checkouts ADD COLUMN IF NOT EXISTS discount_customer DECIMAL(10,2) DEFAULT 0;
 ALTER TABLE checkouts ADD COLUMN IF NOT EXISTS discount_manual DECIMAL(10,2) DEFAULT 0;
 ALTER TABLE checkouts ADD COLUMN IF NOT EXISTS discount_total DECIMAL(10,2) DEFAULT 0;
+
+-- Ensure image_path column exists for inventory
+ALTER TABLE inventory ADD COLUMN IF NOT EXISTS image_path TEXT;
 
 -- Add foreign key constraint for customer_id if not present
 DO $$

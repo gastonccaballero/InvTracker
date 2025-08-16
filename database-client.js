@@ -177,25 +177,42 @@ async function loadData() {
   try {
     console.log('Loading data from database...');
     
-    // Load all data in parallel
-    const [settings, inventory, events, checkouts, activity] = await Promise.all([
-      api.getSettings(),
-      api.getInventory(),
-      api.getEvents(),
-      api.getCheckouts(),
-      api.getActivity()
-    ]);
+    // Initialize with defaults first
+    DB.settings = {};
+    DB.inventory = [];
+    DB.events = [];
+    DB.checkouts = [];
+    DB.customers = [];
+    DB.activity = [];
+    
+    // Load all data safely
+    try {
+      const [settings, inventory, events, checkouts, activity] = await Promise.all([
+        api.getSettings().catch(e => { console.warn('Settings failed:', e); return {}; }),
+        api.getInventory().catch(e => { console.warn('Inventory failed:', e); return []; }),
+        api.getEvents().catch(e => { console.warn('Events failed:', e); return []; }),
+        api.getCheckouts().catch(e => { console.warn('Checkouts failed:', e); return []; }),
+        api.getActivity().catch(e => { console.warn('Activity failed:', e); return []; })
+      ]);
+      
+      // Update global DB object
+      DB.settings = settings || {};
+      DB.inventory = inventory || [];
+      DB.events = events || [];
+      DB.checkouts = checkouts || [];
+      DB.activity = activity || [];
+    } catch (error) {
+      console.warn('Some data failed to load, using defaults:', error);
+    }
+    
     // Customers loaded separately and safely (endpoint may not exist yet)
-    let customers = [];
-    try { customers = await api.getCustomers(); } catch (e) { customers = []; }
-
-    // Update global DB object
-    DB.settings = settings || {};
-    DB.inventory = inventory || [];
-    DB.events = events || [];
-    DB.checkouts = checkouts || [];
-    DB.customers = customers || [];
-    DB.activity = activity || [];
+    try { 
+      const customers = await api.getCustomers(); 
+      DB.customers = customers || [];
+    } catch (e) { 
+      console.warn('Customers failed to load:', e);
+      DB.customers = []; 
+    }
 
     console.log('Data loaded successfully:', {
       settings: DB.settings,
@@ -209,6 +226,13 @@ async function loadData() {
     return true;
   } catch (error) {
     console.error('Failed to load data:', error);
+    // Ensure DB has default values even on complete failure
+    DB.settings = DB.settings || {};
+    DB.inventory = DB.inventory || [];
+    DB.events = DB.events || [];
+    DB.checkouts = DB.checkouts || [];
+    DB.customers = DB.customers || [];
+    DB.activity = DB.activity || [];
     return false;
   }
 }
