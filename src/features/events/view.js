@@ -1,6 +1,8 @@
 import { $, escapeHtml, uid, nowISO } from '../../lib/dom.js';
 import { DB, byId } from '../../state/store.js';
 import { upsertEvent, removeEvent } from '../../state/actions.js';
+import { getEditIcon, getDeleteIcon } from '../../lib/icons.js';
+import { showConfirmModal } from '../../lib/modal.js';
 
 function renderTable(){
   const q = ($('#evtSearch').value||'').toLowerCase();
@@ -15,8 +17,8 @@ function renderTable(){
       <td><span class="badge">${escapeHtml(e.status||'planned')}</span></td>
       <td>${escapeHtml(e.contact||'')}</td>
       <td class="row-actions">
-        <button class="ghost" data-evted="${e.id}">Edit</button>
-        <button class="ghost" data-evtdel="${e.id}">Delete</button>
+        <button class="btn-icon btn-edit" data-evted="${e.id}" title="Edit">${getEditIcon()}</button>
+        <button class="btn-icon btn-delete" data-evtdel="${e.id}" title="Delete">${getDeleteIcon()}</button>
       </td>
     </tr>`).join('');
   $('#evtBody').innerHTML = rows || `<tr><td colspan="7" style="color:#9ab">No events. Click <em>Add Event</em>.</td></tr>`;
@@ -79,9 +81,11 @@ function wire(){
     if (ed){ const ev = byId(DB.events, ed); if (ev) openDialog(ev); }
     if (del){
       const ev = byId(DB.events, del);
-      if (ev && confirm('Delete this event?')){
-        await removeEvent(del);
-        renderTable();
+      if (ev) {
+        showConfirmModal(`Are you sure you want to delete "${ev.name}"?`, async () => {
+          await removeEvent(del);
+          renderTable();
+        });
       }
     }
   });

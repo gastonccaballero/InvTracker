@@ -1,5 +1,92 @@
 // Events Management Module
 
+// Icon functions
+function getEditIcon() {
+  return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+    <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+  </svg>`;
+}
+
+function getDeleteIcon() {
+  return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 6h18"/>
+    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+    <line x1="10" x2="10" y1="11" y2="17"/>
+    <line x1="14" x2="14" y1="11" y2="17"/>
+  </svg>`;
+}
+
+// Modal function
+function showConfirmModal(message, onConfirm, onCancel = null) {
+  // Remove any existing confirmation modal
+  const existingModal = document.getElementById('confirmModal');
+  if (existingModal) {
+    existingModal.remove();
+  }
+
+  // Create modal HTML
+  const modalHTML = `
+    <div id="confirmModal" class="confirm-modal">
+      <div class="confirm-modal-content">
+        <div class="confirm-modal-header">
+          <h3>Confirm Action</h3>
+        </div>
+        <div class="confirm-modal-body">
+          <p>${message}</p>
+        </div>
+        <div class="confirm-modal-actions">
+          <button class="btn ghost" id="confirmCancel">Cancel</button>
+          <button class="btn warn" id="confirmDelete">Delete</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Add modal to body
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+  const modal = $('#confirmModal');
+  const cancelBtn = $('#confirmCancel');
+  const deleteBtn = $('#confirmDelete');
+
+  // Handle cancel
+  const handleCancel = () => {
+    modal.remove();
+    if (onCancel) onCancel();
+  };
+
+  // Handle confirm
+  const handleConfirm = () => {
+    modal.remove();
+    if (onConfirm) onConfirm();
+  };
+
+  // Add event listeners
+  cancelBtn.onclick = handleCancel;
+  deleteBtn.onclick = handleConfirm;
+
+  // Close on backdrop click
+  modal.onclick = (e) => {
+    if (e.target === modal) {
+      handleCancel();
+    }
+  };
+
+  // Close on Escape key
+  const handleEscape = (e) => {
+    if (e.key === 'Escape') {
+      handleCancel();
+      document.removeEventListener('keydown', handleEscape);
+    }
+  };
+  document.addEventListener('keydown', handleEscape);
+
+  // Focus the delete button for accessibility
+  deleteBtn.focus();
+}
+
 // Global references
 const evtBody = $('#evtBody');
 const evtCount = $('#evtCount');
@@ -33,8 +120,8 @@ function renderEvents() {
             <td><span class="badge">${escapeHtml(e.status || 'planned')}</span></td>
             <td>${escapeHtml(e.contact || '')}</td>
             <td class="row-actions">
-                <button class="ghost" data-evted="${e.id}">Edit</button>
-                <button class="ghost" data-evtdel="${e.id}">Delete</button>
+                <button class="btn-icon btn-edit" data-evted="${e.id}" title="Edit">${getEditIcon()}</button>
+                <button class="btn-icon btn-delete" data-evtdel="${e.id}" title="Delete">${getDeleteIcon()}</button>
             </td>
         </tr>`).join('');
     
@@ -104,15 +191,17 @@ async function handleEventActions(e) {
     
     if (del) {
         const ev = byId(DB.events, del);
-        if (ev && confirm('Delete this event?')) {
-            const success = await deleteEvent(del);
-            if (success) {
-                renderEvents();
-                if (typeof renderCheckouts === 'function') renderCheckouts();
-                if (typeof renderReports === 'function') renderReports();
-            } else {
-                alert('Failed to delete event. Please try again.');
-            }
+        if (ev) {
+            showConfirmModal(`Are you sure you want to delete "${ev.name}"?`, async () => {
+                const success = await deleteEvent(del);
+                if (success) {
+                    renderEvents();
+                    if (typeof renderCheckouts === 'function') renderCheckouts();
+                    if (typeof renderReports === 'function') renderReports();
+                } else {
+                    alert('Failed to delete event. Please try again.');
+                }
+            });
         }
     }
 }
