@@ -2,6 +2,8 @@ import { $, $$, escapeHtml } from '../../lib/dom.js';
 import { DB, byId } from '../../state/store.js';
 import { removeInventory } from '../../state/actions.js';
 import { setupInventoryDialog, openInventoryDialog } from './dialog.js';
+import { getEditIcon, getDeleteIcon } from '../../lib/icons.js';
+import { showConfirmModal } from '../../lib/modal.js';
 
 function renderCategories(){
   const cats = Array.from(new Set(DB.inventory.map(i=>i.category).filter(Boolean))).sort();
@@ -35,8 +37,8 @@ function renderTable(){
       <td>${i.safety_stock||0}</td>
       <td>${tags}</td>
       <td class="row-actions">
-        <button class="ghost" data-edit="${i.id}">Edit</button>
-        <button class="ghost" data-del="${i.id}">Delete</button>
+        <button class="btn-icon btn-edit" data-edit="${i.id}" title="Edit">${getEditIcon()}</button>
+        <button class="btn-icon btn-delete" data-del="${i.id}" title="Delete">${getDeleteIcon()}</button>
       </td>
     </tr>`;
   }).join('');
@@ -59,10 +61,15 @@ function wireInteractions(){
       const item = byId(DB.inventory, delId);
       if (item) {
         const out = outQtyForItem(item.id);
-        if (out>0 && !confirm(`This item has ${out} out on checkouts. Delete anyway?`)) return;
-        await removeInventory(delId);
-        renderCategories();
-        renderTable();
+        const message = out > 0 
+          ? `Are you sure you want to delete "${item.name}"? This item has ${out} out on checkouts.`
+          : `Are you sure you want to delete "${item.name}"?`;
+        
+        showConfirmModal(message, async () => {
+          await removeInventory(delId);
+          renderCategories();
+          renderTable();
+        });
       }
     }
   });

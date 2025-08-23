@@ -1,5 +1,92 @@
 // Inventory Management Module
 
+// Icon functions
+function getEditIcon() {
+  return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+    <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+  </svg>`;
+}
+
+function getDeleteIcon() {
+  return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 6h18"/>
+    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+    <line x1="10" x2="10" y1="11" y2="17"/>
+    <line x1="14" x2="14" y1="11" y2="17"/>
+  </svg>`;
+}
+
+// Modal function
+function showConfirmModal(message, onConfirm, onCancel = null) {
+  // Remove any existing confirmation modal
+  const existingModal = document.getElementById('confirmModal');
+  if (existingModal) {
+    existingModal.remove();
+  }
+
+  // Create modal HTML
+  const modalHTML = `
+    <div id="confirmModal" class="confirm-modal">
+      <div class="confirm-modal-content">
+        <div class="confirm-modal-header">
+          <h3>Confirm Action</h3>
+        </div>
+        <div class="confirm-modal-body">
+          <p>${message}</p>
+        </div>
+        <div class="confirm-modal-actions">
+          <button class="btn ghost" id="confirmCancel">Cancel</button>
+          <button class="btn warn" id="confirmDelete">Delete</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Add modal to body
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+  const modal = $('#confirmModal');
+  const cancelBtn = $('#confirmCancel');
+  const deleteBtn = $('#confirmDelete');
+
+  // Handle cancel
+  const handleCancel = () => {
+    modal.remove();
+    if (onCancel) onCancel();
+  };
+
+  // Handle confirm
+  const handleConfirm = () => {
+    modal.remove();
+    if (onConfirm) onConfirm();
+  };
+
+  // Add event listeners
+  cancelBtn.onclick = handleCancel;
+  deleteBtn.onclick = handleConfirm;
+
+  // Close on backdrop click
+  modal.onclick = (e) => {
+    if (e.target === modal) {
+      handleCancel();
+    }
+  };
+
+  // Close on Escape key
+  const handleEscape = (e) => {
+    if (e.key === 'Escape') {
+      handleCancel();
+      document.removeEventListener('keydown', handleEscape);
+    }
+  };
+  document.addEventListener('keydown', handleEscape);
+
+  // Focus the delete button for accessibility
+  deleteBtn.focus();
+}
+
 // Global references
 const invBody = $('#invBody');
 const invCount = $('#invCount');
@@ -60,8 +147,8 @@ function renderInventory() {
             <td>${i.safety_stock || 0}</td>
             <td>${tags}</td>
             <td class="row-actions">
-                <button class="ghost" data-edit="${i.id}">Edit</button>
-                <button class="ghost" data-del="${i.id}">Delete</button>
+                <button class="btn-icon btn-edit" data-edit="${i.id}" title="Edit">${getEditIcon()}</button>
+                <button class="btn-icon btn-delete" data-del="${i.id}" title="Delete">${getDeleteIcon()}</button>
             </td>
         </tr>`;
     }).join('');
@@ -77,6 +164,9 @@ function inventoryCategories() {
 
 // Open item dialog
 function openItemDialog(item = null) {
+    console.log('openItemDialog called with item:', item);
+    console.log('Dialog element:', $('#invDialog'));
+    
     $('#invDialogTitle').textContent = item ? 'Edit Item' : 'New Item';
     
     // Reset image preview
@@ -124,7 +214,9 @@ function openItemDialog(item = null) {
         }, 10);
     }
     
+    console.log('About to show modal...');
     invDialog.showModal();
+    console.log('Modal should be visible now');
 }
 
 // Save inventory item handler
@@ -180,28 +272,52 @@ async function saveInventoryItemHandler() {
 
 // Handle inventory actions (edit/delete)
 async function handleInventoryActions(e) {
-    const editId = e.target.getAttribute('data-edit');
-    const delId = e.target.getAttribute('data-del');
+    console.log('Inventory action clicked:', e.target);
+    console.log('Target attributes:', e.target.attributes);
+    
+    // Handle clicks on SVG elements inside buttons
+    let target = e.target;
+    while (target && !target.hasAttribute('data-edit') && !target.hasAttribute('data-del')) {
+        target = target.parentElement;
+        if (!target) break;
+    }
+    
+    const editId = target ? target.getAttribute('data-edit') : null;
+    const delId = target ? target.getAttribute('data-del') : null;
+    
+    console.log('Edit ID:', editId);
+    console.log('Delete ID:', delId);
     
     if (editId) {
+        console.log('Edit button clicked for ID:', editId);
         const item = byId(DB.inventory, editId);
-        if (item) openItemDialog(item);
+        console.log('Found item:', item);
+        if (item) {
+            console.log('Opening edit dialog for item:', item.name);
+            openItemDialog(item);
+        } else {
+            console.error('Item not found for ID:', editId);
+        }
     }
     
     if (delId) {
         const item = byId(DB.inventory, delId);
         if (item) {
             const outOnOrders = outQtyForItem(item.id);
-            if (outOnOrders > 0 && !confirm(`This item has ${outOnOrders} out on checkouts. Delete anyway?`)) return;
+            const message = outOnOrders > 0 
+                ? `Are you sure you want to delete "${item.name}"? This item has ${outOnOrders} out on checkouts.`
+                : `Are you sure you want to delete "${item.name}"?`;
             
-            const success = await deleteInventoryItem(delId);
-            if (success) {
-                renderInventory();
-                if (typeof refreshCOInventorySearch === 'function') refreshCOInventorySearch();
-                if (typeof renderReports === 'function') renderReports();
-            } else {
-                alert('Failed to delete item. Please try again.');
-            }
+            showConfirmModal(message, async () => {
+                const success = await deleteInventoryItem(delId);
+                if (success) {
+                    renderInventory();
+                    if (typeof refreshCOInventorySearch === 'function') refreshCOInventorySearch();
+                    if (typeof renderReports === 'function') renderReports();
+                } else {
+                    alert('Failed to delete item. Please try again.');
+                }
+            });
         }
     }
 }
