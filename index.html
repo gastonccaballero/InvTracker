@@ -50,6 +50,107 @@ input:focus,select:focus,textarea:focus{box-shadow:var(--ring);border-color:#6aa
 .nav .tab.active[data-tab="tab-returns"]{background:linear-gradient(135deg,#f59e0b,#fbbf24);border-color:#0000;color:white}
 .nav .tab.active[data-tab="tab-reports"]{background:linear-gradient(135deg,#ef4444,#f87171);border-color:#0000;color:white}
 .nav .tab.active[data-tab="tab-templates"]{background:linear-gradient(135deg,#dc2626,#dc2626);border-color:#0000;color:white}
+
+/* Invoice Template Editor Styles */
+.template-canvas {
+  min-height: 900px;
+  background: white;
+  border: 1px solid #ffffff22;
+  border-radius: 8px;
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.canvas-page {
+  width: 816px; /* Letter width inside margins */
+  min-height: 1056px; /* Letter height (11" at 96 DPI) */
+  margin: 20px auto;
+  background: #fff;
+  color: #111;
+  position: relative;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 10px 20px rgba(0,0,0,.08);
+}
+
+.canvas-inner { position: relative; padding: 24px; }
+
+.canvas-grid {
+  position: absolute; inset: 24px;
+  background-image:
+    linear-gradient(#00000010 1px, transparent 1px),
+    linear-gradient(90deg, #00000010 1px, transparent 1px);
+  background-size: 24px 24px, calc(816px / 12) 24px;
+  pointer-events: none;
+}
+
+.template-block {
+  border: 1px solid #94a3b8;
+  border-radius: 6px;
+  background: #f8fafc;
+  position: absolute;
+  min-height: 24px;
+  min-width: calc(816px/12);
+  cursor: move;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+
+.template-block.selected { outline: 2px solid #6aa2ff; outline-offset: 0; }
+.template-block.locked { cursor: not-allowed; background: #eef2f7; border-style: dashed; }
+
+.block-content { padding: 8px; font-size: 13px; }
+
+.block-resize {
+  position: absolute; width: 12px; height: 12px;
+  background: #6aa2ff; border-radius: 2px;
+  bottom: 4px; right: 4px; cursor: nwse-resize;
+  opacity: 0; transition: opacity .15s;
+}
+.template-block:hover .block-resize { opacity: 1; }
+
+.block-toolbar {
+  position: absolute; top: -32px; left: 0;
+  display: flex; gap: 6px;
+  opacity: 0; transition: opacity .15s;
+}
+.template-block:hover .block-toolbar { opacity: 1; }
+.block-btn-mini {
+  background: #0f141c; color: #e2e8f0;
+  border: 1px solid #ffffff22;
+  border-radius: 6px; padding: 2px 6px; font-size: 12px; cursor: pointer;
+}
+.block-btn-mini.delete {
+  background: #ff5d73; color: white;
+  border-color: #ff5d73;
+}
+.block-btn-mini.delete:hover {
+  background: #ff3951; border-color: #ff3951;
+}
+
+/* Inspector */
+.block-palette { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.block-btn {
+  padding: 8px 12px;
+  border: 1px solid #ffffff26;
+  border-radius: 6px;
+  background: #0f141c;
+  color: #e2e8f0;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+.block-btn:hover {
+  border-color: #ffffff40;
+  background: #1b2330;
+}
+.block-inspector-form { display: flex; flex-direction: column; gap: 12px; }
+.inspector-section { margin-bottom: 12px; }
+.inspector-section h5 { margin: 0 0 6px 0; font-size: 12px; color: #a7b0bf; }
+
+/* Preview modal */
+#tplPreviewDialog .dialog-body { background: #fff; color: #111; }
+#tplPreviewArea { max-height: 80vh; overflow: auto; background: #f7f7f7; padding: 16px; border-radius: 8px; }
 .hidden{display:none!important}
 .flex{display:flex;gap:10px;flex-wrap:wrap}
 .right{margin-left:auto}
@@ -468,8 +569,50 @@ footer{opacity:.7;margin-top:10px;font-size:12px}
   <!-- INVOICE TEMPLATES -->
   <section id="tab-templates" class="grid hidden">
     <div class="card">
-      <h3>Invoice Templates</h3>
-      <p>Invoice templates functionality coming soon...</p>
+      <div class="flex" style="align-items:center">
+        <h3 style="margin-right:auto">Invoice Templates</h3>
+        <div class="toolbar">
+          <button id="btnNewTemplate" class="primary">New Template</button>
+          <button id="btnSaveTemplate" class="green">Save Template</button>
+          <button id="btnPreviewTemplate" class="ghost">Preview</button>
+        </div>
+      </div>
+      
+      <div class="flex" style="gap:8px;align-items:center;margin:8px 0">
+        <button id="btnExportTemplates" class="ghost">Export JSON</button>
+        <label class="btn ghost" for="tplImportInput">Import JSON</label>
+        <input id="tplImportInput" type="file" accept="application/json" style="display:none">
+      </div>
+      
+      <!-- Template Editor -->
+      <div id="templateEditor" style="display:none;">
+        <div class="grid" style="grid-template-columns: 1fr 340px; gap: 20px;">
+          <div class="card">
+            <div class="flex" style="align-items:center">
+              <h4 style="margin-right:auto">Template Canvas</h4>
+              <button id="btnAddBlock" class="primary" style="margin-right:12px;">Add Block</button>
+              <small class="mono" id="tplMeta"></small>
+            </div>
+            <div id="templateCanvas" class="template-canvas">
+              <div class="canvas-page">
+                <div class="canvas-inner" id="canvasInner"></div>
+                <div class="canvas-grid"></div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <h4>Block Inspector</h4>
+            <div id="blockInspector"><p>Select a block to edit its properties</p></div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Template List -->
+      <div id="templateList">
+        <div id="templateCards" class="grid" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px;">
+          <!-- Cards rendered by JS -->
+        </div>
+      </div>
     </div>
   </section>
 
@@ -645,7 +788,7 @@ footer{opacity:.7;margin-top:10px;font-size:12px}
         </div>
       </div>
     </form>
-    <div class="note">Hint: If you leave “Available now” blank, it will default to Total quantity.</div>
+    <div class="note">Hint: If you leave "Available now" blank, it will default to Total quantity.</div>
   </div>
   <div class="dialog-actions">
     <button class="ghost" data-close>Cancel</button>
@@ -679,6 +822,48 @@ footer{opacity:.7;margin-top:10px;font-size:12px}
   <div class="dialog-actions">
     <button class="ghost" data-close>Cancel</button>
     <button id="btnSaveEvent" class="green">Save</button>
+  </div>
+</dialog>
+
+<!-- TEMPLATE PREVIEW -->
+<dialog id="tplPreviewDialog">
+  <div class="dialog-head">
+    <strong>Template Preview</strong>
+    <div class="right"></div>
+    <button class="ghost" data-close>Close</button>
+  </div>
+  <div class="dialog-body">
+    <div id="tplPreviewArea"></div>
+  </div>
+  <div class="dialog-actions">
+    <button class="ghost" data-close>Close</button>
+    <button id="btnPrintTplPreview" class="primary">Print</button>
+  </div>
+</dialog>
+
+<!-- ADD BLOCK MODAL -->
+<dialog id="addBlockDialog">
+  <div class="dialog-head">
+    <strong>Add Block</strong>
+    <div class="right"></div>
+    <button class="ghost" data-close>Close</button>
+  </div>
+  <div class="dialog-body">
+    <p style="color:#c9d4e6;margin-bottom:16px;">Choose a block type to add to your template:</p>
+    <div class="block-palette">
+      <button class="block-btn" data-block="Text">Text</button>
+      <button class="block-btn" data-block="Logo">Logo</button>
+      <button class="block-btn" data-block="Address">Address</button>
+      <button class="block-btn" data-block="KeyValue">Key-Value</button>
+      <button class="block-btn" data-block="LineItemsTable">Line Items Table</button>
+      <button class="block-btn" data-block="Totals">Totals</button>
+      <button class="block-btn" data-block="Divider">Divider</button>
+      <button class="block-btn" data-block="Spacer">Spacer</button>
+      <button class="block-btn" data-block="CheckoutSummary">Checkout Summary</button>
+    </div>
+  </div>
+  <div class="dialog-actions">
+    <button class="ghost" data-close>Cancel</button>
   </div>
 </dialog>
 
@@ -765,6 +950,10 @@ window.addEventListener('databaseLoaded', async (event) => {
     if (typeof renderCheckouts === 'function') renderCheckouts();
     if (typeof renderDashboard === 'function') renderDashboard();
     if (typeof renderReports === 'function') renderReports();
+    
+    // Initialize template editor
+    console.log('🔧 Initializing template editor...');
+    initTemplateEditor();
     
     console.log('✅ All modules initialized');
   } else {
@@ -1270,6 +1459,690 @@ function renderReturns(){
 
 /* ========= Initial Render ========= */
 // Initialization is now handled in the DOMContentLoaded event above
+
+/* ========= Invoice Template Editor (UPGRADED) ========= */
+
+/** Data Types
+ * Block: { id, kind, rect:{i,x,y,w,h,static?}, visibleIf?, style?, ...kindProps }
+ * Template: { id, name, version, page:{width:"Letter"|"A4", padding, columns, rowHeight}, blocks:[] }
+ */
+
+const GRID = { cols: 12, colW: 816/12, rowH: 24, pageW: 816, pad: 24 };
+
+let currentTemplate = null;
+let selectedBlockId = null;
+
+/* --- Confirm Modal for Template Editor --- */
+function showConfirmModal(message, onConfirm, onCancel = null) {
+  // Remove any existing confirmation modal
+  const existingModal = document.getElementById('confirmModal');
+  if (existingModal) {
+    existingModal.remove();
+  }
+
+  // Create modal HTML
+  const modalHTML = `
+    <div id="confirmModal" class="confirm-modal">
+      <div class="confirm-modal-content">
+        <div class="confirm-modal-header">
+          <h3>Confirm Action</h3>
+        </div>
+        <div class="confirm-modal-body">
+          <p>${message}</p>
+        </div>
+        <div class="confirm-modal-actions">
+          <button class="btn ghost" id="confirmCancel">Cancel</button>
+          <button class="btn warn" id="confirmDelete">Delete</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Add modal to body
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+  const modal = $('#confirmModal');
+  const cancelBtn = $('#confirmCancel');
+  const deleteBtn = $('#confirmDelete');
+
+  // Handle cancel
+  const handleCancel = () => {
+    modal.remove();
+    if (onCancel) onCancel();
+  };
+
+  // Handle confirm
+  const handleConfirm = () => {
+    modal.remove();
+    if (onConfirm) onConfirm();
+  };
+
+  // Add event listeners
+  cancelBtn.onclick = handleCancel;
+  deleteBtn.onclick = handleConfirm;
+
+  // Close modal when clicking backdrop
+  modal.onclick = (e) => {
+    if (e.target === modal) {
+      handleCancel();
+    }
+  };
+
+  // Close modal with ESC key
+  const handleEscape = (e) => {
+    if (e.key === 'Escape') {
+      handleCancel();
+      document.removeEventListener('keydown', handleEscape);
+    }
+  };
+  document.addEventListener('keydown', handleEscape);
+}
+
+/* --- Template persistence --- */
+function TPL_store() { return JSON.parse(localStorage.getItem('invoiceTemplates') || '{}'); }
+function TPL_saveAll(all) { localStorage.setItem('invoiceTemplates', JSON.stringify(all)); }
+function TPL_upsert(tpl){ const all=TPL_store(); all[tpl.id]=tpl; TPL_saveAll(all); }
+function TPL_delete(id){ const all=TPL_store(); delete all[id]; TPL_saveAll(all); }
+function TPL_list(){ return Object.values(TPL_store()); }
+
+/* --- Micro-templating: {{path}} and [[expr]] --- */
+function tplRender(template, data) {
+  if (!template) return '';
+  let out = template.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_, path) => {
+    try { return path.trim().split('.').reduce((a,k)=>(a?a[k]:''), data) ?? ''; }
+    catch { return ''; }
+  });
+  out = out.replace(/\[\[(.+?)\]\]/g, (_, expr) => {
+    try { return String(Function('with(this) { return ' + expr + '}').call(data)); }
+    catch { return ''; }
+  });
+  return out;
+}
+function tplEval(expr, data) {
+  if (!expr) return true;
+  try { return !!Function('with(this) { return (' + expr + ') }').call(data); }
+  catch { return true; }
+}
+
+/* --- Init / wiring --- */
+function initTemplateEditor() {
+  const tplCards = $('#templateCards');
+  const btnNew = $('#btnNewTemplate');
+  const btnSave = $('#btnSaveTemplate');
+  const btnPreview = $('#btnPreviewTemplate');
+  const btnExport = $('#btnExportTemplates');
+  const inImport = $('#tplImportInput');
+
+  renderTemplateCards();
+
+  btnNew.onclick = () => {
+    currentTemplate = makeStarterTemplate();
+    $('#templateEditor').style.display = 'block';
+    $('#templateList').style.display = 'none';
+    selectedBlockId = null;
+    renderTemplateCanvas();
+  };
+
+  btnSave.onclick = () => {
+    if (!currentTemplate) return alert('No template open');
+    currentTemplate.updatedAt = new Date().toISOString();
+    TPL_upsert(currentTemplate);
+    alert('Template saved.');
+    renderTemplateCards();
+  };
+
+  btnPreview.onclick = () => {
+    if (!currentTemplate) return alert('Open a template first');
+    openTemplatePreview();
+  };
+
+  btnExport.onclick = () => {
+    const all = TPL_store();
+    const blob = new Blob([JSON.stringify(all, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.download = 'invoice-templates.json'; a.href = url; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  inImport.onchange = async (e) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      const merged = { ...TPL_store(), ...data };
+      TPL_saveAll(merged);
+      alert('Templates imported.');
+      renderTemplateCards();
+    } catch { alert('Invalid JSON.'); }
+    inImport.value = '';
+  };
+
+  // Add Block modal functionality
+  const btnAddBlock = $('#btnAddBlock');
+  const addBlockDialog = $('#addBlockDialog');
+  
+  btnAddBlock.onclick = () => {
+    if (!currentTemplate) return alert('Open a template first');
+    addBlockDialog.showModal();
+  };
+
+  // Handle modal close with data-close attribute
+  addBlockDialog.addEventListener('click', (e) => {
+    if (e.target?.hasAttribute?.('data-close')) {
+      addBlockDialog.close();
+    }
+  });
+
+  // Palette buttons in modal
+  $$('#addBlockDialog .block-btn').forEach(btn => {
+    btn.onclick = () => {
+      const blockType = btn.getAttribute('data-block');
+      addBlock(blockType);
+      addBlockDialog.close();
+    };
+  });
+}
+
+/* --- Starter template --- */
+function makeStarterTemplate() {
+  const now = new Date().toISOString();
+  return {
+    id: uid(), name: 'New Template', version: 1, createdAt: now, updatedAt: now,
+    page: { width: 'Letter', padding: 24, columns: 12, rowHeight: 24 },
+    blocks: [
+      { id: uid(), kind:'Logo', rect:{ i:uid(), x:0, y:0, w:3, h:3 }, src:'' },
+      { id: uid(), kind:'Address', rect:{ i:uid(), x:0, y:3, w:4, h:5 }, source:'seller', showLabel:true },
+      { id: uid(), kind:'Address', rect:{ i:uid(), x:4, y:3, w:4, h:5 }, source:'buyer', showLabel:true },
+      { id: uid(), kind:'KeyValue', rect:{ i:uid(), x:8, y:0, w:4, h:4 }, columns:1,
+        pairs:[
+          { label:'Invoice #', valueTemplate:'{{invoice.number}}' },
+          { label:'Date',      valueTemplate:'{{invoice.date}}' },
+          { label:'Due',       valueTemplate:'{{invoice.dueDate}}' },
+          { label:'PO#',       valueTemplate:'{{invoice.poNumber}}' },
+        ]
+      },
+      { id: uid(), kind:'Divider', rect:{ i:uid(), x:0, y:8, w:12, h:1 }, thickness:2 },
+      { id: uid(), kind:'LineItemsTable', rect:{ i:uid(), x:0, y:9, w:12, h:8 }, rowSource:'invoice.items', showHeader:true, zebra:true,
+        columns:[
+          { key:'description', header:'Description' },
+          { key:'qty',         header:'Qty' },
+          { key:'unitPrice',   header:'Unit' },
+          { key:'total',       header:'Line' },
+        ]
+      },
+      { id: uid(), kind:'Totals', rect:{ i:uid(), x:7, y:17, w:5, h:4 }, align:'right',
+        rows:[
+          { label:'Subtotal', valueTemplate:'{{invoice.subtotal}}' },
+          { label:'Tax',      valueTemplate:'{{invoice.taxTotal}}' },
+          { label:'Shipping', valueTemplate:'{{invoice.shipping}}' },
+          { label:'Grand Total', valueTemplate:'{{invoice.total}}', emphasize:true },
+        ]
+      },
+    ]
+  };
+}
+
+/* --- Cards list (Template gallery) --- */
+function renderTemplateCards() {
+  const wrap = $('#templateCards');
+  const list = TPL_list();
+  wrap.innerHTML = list.map(t => `
+    <div class="card template-card">
+      <h4>${escapeHtml(t.name)}</h4>
+      <p>Blocks: ${t.blocks.length} • Updated: ${(t.updatedAt||'').slice(0,10)}</p>
+      <div class="flex" style="gap:8px;margin-top:12px;">
+        <button class="ghost" data-open="${t.id}" style="font-size:12px;">Edit</button>
+        <button class="ghost" data-dup="${t.id}"  style="font-size:12px;">Duplicate</button>
+        <button class="ghost" data-del="${t.id}"  style="font-size:12px;">Delete</button>
+      </div>
+    </div>
+  `).join('') + `
+    <div class="card template-card" style="cursor:pointer;border:2px dashed #ffffff33;">
+      <div style="text-align:center;padding:40px 20px;color:#a7b0bf" id="cardNewTpl">
+        <div style="font-size:24px;margin-bottom:8px;">+</div>
+        <div>Create New Template</div>
+      </div>
+    </div>
+  `;
+
+  wrap.onclick = (e) => {
+    const openId = e.target.getAttribute('data-open');
+    const dupId  = e.target.getAttribute('data-dup');
+    const delId  = e.target.getAttribute('data-del');
+    if (openId) {
+      const tpl = TPL_store()[openId]; if (!tpl) return;
+      currentTemplate = JSON.parse(JSON.stringify(tpl));
+      $('#templateEditor').style.display = 'block';
+      $('#templateList').style.display = 'none';
+      selectedBlockId = null;
+      renderTemplateCanvas();
+    } else if (dupId) {
+      const base = TPL_store()[dupId]; if (!base) return;
+      const copy = JSON.parse(JSON.stringify(base));
+      copy.id = uid(); copy.name = base.name + ' (Copy)'; copy.updatedAt = new Date().toISOString();
+      TPL_upsert(copy); renderTemplateCards();
+    } else if (delId) {
+      showConfirmModal(
+        'Are you sure you want to delete this template? This action cannot be undone.',
+        () => { TPL_delete(delId); renderTemplateCards(); }
+      );
+    } else if (e.target.id === 'cardNewTpl') {
+      $('#btnNewTemplate').click();
+    }
+  };
+}
+
+/* --- Canvas rendering & interactions --- */
+function renderTemplateCanvas() {
+  const canvasInner = $('#canvasInner');
+  const meta = $('#tplMeta');
+  canvasInner.innerHTML = '';
+  const tpl = currentTemplate; if (!tpl) return;
+
+  meta.textContent = `${tpl.name} • ${tpl.page.columns || GRID.cols} cols`;
+
+  for (const b of tpl.blocks) {
+    const el = document.createElement('div');
+    el.className = 'template-block';
+    el.dataset.blockId = b.id;
+    if (b.rect?.static) el.classList.add('locked');
+    positionBlockEl(el, b.rect);
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'block-toolbar';
+    toolbar.innerHTML = `
+      <button class="block-btn-mini" data-act="lock">${b.rect?.static ? 'Unlock' : 'Lock'}</button>
+      <button class="block-btn-mini" data-act="dup">Duplicate</button>
+      <button class="block-btn-mini delete" data-act="del">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+          <path d="M3 6h18"/>
+          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+        </svg>
+      </button>
+    `;
+
+    const content = document.createElement('div');
+    content.className = 'block-content';
+    content.innerHTML = renderBlockPreview(b, sampleDataContext());
+
+    const handle = document.createElement('div');
+    handle.className = 'block-resize';
+
+    el.appendChild(toolbar);
+    el.appendChild(content);
+    el.appendChild(handle);
+
+    el.onclick = (e) => { 
+      // Only stop propagation and select block if clicking on content, not toolbar
+      if (!e.target.closest('.block-toolbar')) {
+        e.stopPropagation(); 
+        selectBlock(b.id); 
+      }
+    };
+
+    attachDrag(el, b);
+    attachResize(handle, el, b);
+
+    canvasInner.appendChild(el);
+  }
+
+  $('#templateCanvas').onclick = (e) => {
+    if (e.target.id === 'canvasInner' || e.target.id === 'templateCanvas') selectBlock(null);
+  };
+
+  document.addEventListener('keydown', (e) => {
+    if (!selectedBlockId || $('#templateEditor').style.display === 'none') return;
+    const idx = currentTemplate.blocks.findIndex(x => x.id === selectedBlockId);
+    if (idx < 0) return;
+    const b = currentTemplate.blocks[idx];
+    if (e.key === 'Delete') { removeBlock(b.id); return; }
+    const step = e.shiftKey ? 2 : 1;
+    let changed = false;
+    if (e.key === 'ArrowLeft')  { b.rect.x = Math.max(0, b.rect.x - step); changed = true; }
+    if (e.key === 'ArrowRight') { b.rect.x = Math.min(GRID.cols - b.rect.w, b.rect.x + step); changed = true; }
+    if (e.key === 'ArrowUp')    { b.rect.y = Math.max(0, b.rect.y - step); changed = true; }
+    if (e.key === 'ArrowDown')  { b.rect.y = Math.max(0, b.rect.y + step); changed = true; }
+    if (changed) { renderTemplateCanvas(); persistDraft(); }
+  });
+
+  renderInspector();
+}
+
+function positionBlockEl(el, rect) {
+  const x = rect.x * GRID.colW + GRID.pad;
+  const y = rect.y * GRID.rowH + GRID.pad;
+  const w = rect.w * GRID.colW;
+  const h = rect.h * GRID.rowH;
+  el.style.left = x + 'px';
+  el.style.top  = y + 'px';
+  el.style.width  = w + 'px';
+  el.style.height = h + 'px';
+}
+
+function gridSnap(pxX, pxY) {
+  const x = Math.round((pxX - GRID.pad) / GRID.colW);
+  const y = Math.round((pxY - GRID.pad) / GRID.rowH);
+  return { x: Math.max(0, x), y: Math.max(0, y) };
+}
+function gridSnapSize(pxW, pxH) {
+  const w = Math.max(1, Math.round(pxW / GRID.colW));
+  const h = Math.max(1, Math.round(pxH / GRID.rowH));
+  return { w: Math.min(GRID.cols, w), h };
+}
+
+function attachDrag(el, block) {
+  if (block.rect?.static) return;
+  let start = null;
+  el.addEventListener('mousedown', (e) => {
+    if (e.target.classList.contains('block-resize') || e.target.closest('.block-toolbar')) return;
+    start = { x:e.clientX, y:e.clientY, r:{ ...block.rect } };
+    document.body.style.userSelect = 'none';
+    const move = (ev) => {
+      const dx = ev.clientX - start.x;
+      const dy = ev.clientY - start.y;
+      const pxX = start.r.x * GRID.colW + dx + GRID.pad;
+      const pxY = start.r.y * GRID.rowH + dy + GRID.pad;
+      const g = gridSnap(pxX, pxY);
+      block.rect.x = Math.min(GRID.cols - block.rect.w, g.x);
+      block.rect.y = Math.max(0, g.y);
+      positionBlockEl(el, block.rect);
+    };
+    const up = () => {
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup', up);
+      document.body.style.userSelect = '';
+      persistDraft();
+    };
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
+  });
+}
+
+function attachResize(handle, el, block) {
+  if (block.rect?.static) return;
+  handle.addEventListener('mousedown', (e) => {
+    e.stopPropagation();
+    const start = { x:e.clientX, y:e.clientY, r:{ ...block.rect }, w:el.offsetWidth, h:el.offsetHeight };
+    document.body.style.userSelect = 'none';
+    const move = (ev) => {
+      const dw = ev.clientX - start.x;
+      const dh = ev.clientY - start.y;
+      const pxW = Math.max(GRID.colW, start.w + dw);
+      const pxH = Math.max(GRID.rowH, start.h + dh);
+      const g = gridSnapSize(pxW, pxH);
+      block.rect.w = Math.min(GRID.cols - block.rect.x, g.w);
+      block.rect.h = g.h;
+      positionBlockEl(el, block.rect);
+    };
+    const up = () => {
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup', up);
+      document.body.style.userSelect = '';
+      persistDraft();
+    };
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
+  });
+}
+
+/* --- Blocks: add/remove/refresh --- */
+function addBlock(kind) {
+  if (!currentTemplate) return;
+  const id = uid();
+  const rect = { i: uid(), x: 0, y: (currentTemplate.blocks.length? currentTemplate.blocks.at(-1).rect.y + 3 : 0), w: 4, h: 2 };
+  const base = { id, kind, rect, style: { fontSize: 14, align: 'left' } };
+  let spec = {};
+  if (kind==='Text') spec = { template: 'Invoice #{{invoice.number}}' };
+  if (kind==='Logo') spec = { src: DB?.settings?.logo || '' };
+  if (kind==='Address') spec = { source: 'seller', showLabel: true };
+  if (kind==='KeyValue') spec = { columns: 2, pairs: [{ label:'PO#', valueTemplate:'{{invoice.poNumber}}' }] };
+  if (kind==='LineItemsTable') spec = { rowSource:'invoice.items', showHeader:true, zebra:true, columns:[
+    { header:'Description', key:'description' },
+    { header:'Qty',         key:'qty' },
+    { header:'Unit',        key:'unitPrice' },
+    { header:'Line',        template:'[[ row.qty * row.unitPrice ]]' },
+  ]};
+  if (kind==='Totals') spec = { align:'right', rows:[
+    { label:'Subtotal', valueTemplate:'{{invoice.subtotal}}' },
+    { label:'Tax',      valueTemplate:'{{invoice.taxTotal}}' },
+    { label:'Total',    valueTemplate:'{{invoice.total}}', emphasize:true },
+  ]};
+  if (kind==='Divider') spec = { thickness: 1 };
+  if (kind==='CheckoutSummary') spec = { fields:[
+    { label:'Order',  valueTemplate:'{{checkout.orderId}}' },
+    { label:'Paid',   valueTemplate:'{{checkout.paidAmount}}' },
+    { label:'Method', valueTemplate:'{{checkout.paymentMethod}}' },
+  ]};
+
+  currentTemplate.blocks.push({ ...base, ...spec });
+  renderTemplateCanvas();
+  selectBlock(id);
+  persistDraft();
+}
+
+function removeBlock(id) {
+  if (!currentTemplate) return;
+  currentTemplate.blocks = currentTemplate.blocks.filter(b => b.id !== id);
+  selectedBlockId = null;
+  renderTemplateCanvas();
+  persistDraft();
+}
+
+function refreshBlock(id) {
+  const el = document.querySelector(`.template-block[data-block-id="${id}"]`);
+  const b = currentTemplate.blocks.find(x => x.id === id);
+  if (!el || !b) return;
+  positionBlockEl(el, b.rect);
+  el.querySelector('.block-content').innerHTML = renderBlockPreview(b, sampleDataContext());
+  persistDraft();
+}
+
+/* --- Data context for previews --- */
+function sampleDataContext() {
+  const co = (DB.checkouts||[])[(DB.checkouts||[]).length-1] || null;
+  const ev = co ? byId(DB.events||[], co.event_id) : null;
+  const cust = co ? byId(DB.customers||[], co.customer_id) : null;
+  return {
+    invoice: {
+      number:  co?.id || 'INV-1001',
+      date:    (co?.date || new Date().toISOString()).slice(0,10),
+      dueDate: co?.due_date || (new Date(Date.now()+7*864e5)).toISOString().slice(0,10),
+      poNumber:'PO-12345',
+      seller: { name: DB.settings?.biz_name || 'Your Business',
+        line1: DB.settings?.biz_address || '', city:'', state:'', postal:'', country:'',
+        email: DB.settings?.biz_email || '', phone: DB.settings?.biz_phone || '' },
+      buyer:  { name: cust?.name || ev?.client || 'Client', line1:'', city:'', state:'', postal:'', country:'' },
+      items:  co?.items || [{ description:'Chair', qty:2, unitPrice:30, total:60 }, { description:'Table', qty:1, unitPrice:90, total:90 }],
+      subtotal: co?.subtotal ?? 150,
+      taxTotal: co?.tax ?? 10.5,
+      shipping: 0,
+      total:    co?.total ?? 160.5,
+      notes: 'Thank you for your business.',
+    },
+    checkout: { orderId: co?.id || 'CHK-1', paymentMethod:'card', paidAmount: co?.total ?? 160.5 }
+  };
+}
+
+/* --- Block preview renderer --- */
+function renderBlockPreview(b, data) {
+  if (!tplEval(b.visibleIf, data)) return '<div style="opacity:.5">(hidden by condition)</div>';
+
+  switch (b.kind) {
+    case 'Text': {
+      const html = tplRender(b.template||'', data);
+      const style = (b.style||{});
+      return `<div style="font-size:${style.fontSize||14}px;text-align:${style.align||'left'}">${html}</div>`;
+    }
+    case 'Logo': {
+      const src = b.src || DB?.settings?.logo || '';
+      return src ? `<img src="${escapeHtml(src)}" style="max-height:60px;max-width:240px;object-fit:contain">`
+                 : `<div style="color:#94a3b8">[Logo]</div>`;
+    }
+    case 'Address': {
+      const addr = (data.invoice||{})[b.source||'seller'] || {};
+      return `
+        ${b.showLabel ? `<div style="font-size:11px;text-transform:uppercase;color:#475569">${escapeHtml(b.source||'')}</div>` : ''}
+        <div>${escapeHtml(addr.name||'')}</div>
+        <div>${escapeHtml(addr.line1||'')}</div>
+        <div>${[addr.city,addr.state,addr.postal].filter(Boolean).join(', ')}</div>
+        <div>${escapeHtml(addr.country||'')}</div>
+      `;
+    }
+    case 'KeyValue': {
+      const cols = b.columns || 2;
+      const items = (b.pairs||[]).map(p => `
+        <div style="display:flex;gap:8px;">
+          <div style="font-weight:600">${escapeHtml(p.label)}:</div>
+          <div>${tplRender(p.valueTemplate||'', data)}</div>
+        </div>`).join('');
+      return `<div style="display:grid;gap:6px;grid-template-columns:repeat(${cols},1fr)">${items}</div>`;
+    }
+    case 'LineItemsTable': {
+      const rows = (b.rowSource||'').split('.').reduce((a,k)=>a?.[k], data) || [];
+      const thead = (b.showHeader!==false) ? `<thead><tr>${
+        (b.columns||[]).map(c=>`<th style="text-align:left;border-bottom:1px solid #ddd;padding:4px 6px">${escapeHtml(c.header||'')}</th>`).join('')
+      }</tr></thead>` : '';
+      const body = rows.map((row, ri) => `<tr style="${b.zebra && ri%2 ? 'background:#f7f7f7':''}">${
+        (b.columns||[]).map(c=>{
+          const val = c.template ? tplRender(c.template, { ...data, row }) :
+                     (c.key ? (row[c.key] ?? '') : '');
+          return `<td style="padding:4px 6px;border-bottom:1px solid #eee">${escapeHtml(String(val))}</td>`;
+        }).join('')
+      }</tr>`).join('');
+      return `<table style="width:100%;border-collapse:collapse">${thead}<tbody>${body}</tbody></table>`;
+    }
+    case 'Totals': {
+      const rows = (b.rows||[]).map(r => {
+        const val = tplRender(r.valueTemplate||'', data);
+        return `<div style="display:flex;justify-content:space-between;gap:16px;${r.emphasize?'font-weight:700;font-size:16px':''}">
+          <span>${escapeHtml(r.label||'')}</span><span>${escapeHtml(String(val))}</span>
+        </div>`;
+      }).join('');
+      return `<div style="display:flex;flex-direction:column;gap:6px;${b.align==='right'?'align-items:end':''}">${rows}</div>`;
+    }
+    case 'Divider': return `<div style="height:${(b.thickness||1)}px;background:#0f172a"></div>`;
+    case 'Spacer':  return `<div style="height:12px"></div>`;
+    case 'CheckoutSummary': {
+      const fields = (b.fields||[
+        { label:'Order',  valueTemplate:'{{checkout.orderId}}' },
+        { label:'Paid',   valueTemplate:'{{checkout.paidAmount}}' },
+        { label:'Method', valueTemplate:'{{checkout.paymentMethod}}' },
+      ]).map(f=>`<div class="flex" style="gap:8px"><b>${escapeHtml(f.label)}:</b> ${tplRender(f.valueTemplate, data)}</div>`).join('');
+      return `<div class="space-y-1">${fields}</div>`;
+    }
+    default: return `<div>[${escapeHtml(b.kind)}]</div>`;
+  }
+}
+
+/* --- Persist draft on changes --- */
+function persistDraft() {
+  if (!currentTemplate) return;
+  currentTemplate.updatedAt = new Date().toISOString();
+  TPL_upsert(currentTemplate);
+}
+
+/* --- Preview modal --- */
+function openTemplatePreview() {
+  const dlg = $('#tplPreviewDialog');
+  const area = $('#tplPreviewArea');
+  const data = sampleDataContext();
+  area.innerHTML = renderTemplateHtml(currentTemplate, data);
+  dlg.showModal();
+  dlg.addEventListener('click', (e)=>{ if (e.target?.hasAttribute?.('data-close')) dlg.close(); });
+  $('#btnPrintTplPreview').onclick = ()=> window.print();
+}
+
+function renderTemplateHtml(tpl, data) {
+  const blocks = tpl.blocks.filter(b => tplEval(b.visibleIf, data)).map(b => {
+    const left = b.rect.x * GRID.colW + GRID.pad;
+    const top  = b.rect.y * GRID.rowH + GRID.pad;
+    const width = b.rect.w * GRID.colW;
+    const height= b.rect.h * GRID.rowH;
+    return `<div style="position:absolute;left:${left}px;top:${top}px;width:${width}px;height:${height}px;">
+      ${renderBlockPreview(b, data)}
+    </div>`;
+  }).join('');
+  return `
+    <div style="width:${GRID.pageW}px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px;position:relative">
+      <div style="position:relative;min-height:1000px;padding:${GRID.pad}px">${blocks}</div>
+    </div>`;
+}
+
+/* --- Selection & Inspector --- */
+function selectBlock(id) {
+  selectedBlockId = id;
+  document.querySelectorAll('.template-block').forEach(el => {
+    el.classList.toggle('selected', el.dataset.blockId === id);
+  });
+  renderInspector();
+}
+
+function renderInspector() {
+  const panel = $('#blockInspector');
+  const b = currentTemplate?.blocks.find(x => x.id === selectedBlockId);
+  if (!b) { panel.innerHTML = '<p>Select a block to edit its properties</p>'; return; }
+  panel.innerHTML = `
+    <div class="inspector-section">
+      <h5>Block Properties</h5>
+      <label>Title<br><input id="ipTitle" value="${escapeHtml(b.title||'')}" /></label>
+      <label>Visible If (expr)<br><input id="ipVisibleIf" placeholder="invoice.total > 0" value="${escapeHtml(b.visibleIf||'')}" /></label>
+      <div class="flex">
+        <label>X<br><input id="ipX" type="number" min="0" value="${b.rect.x}" style="width:80px"></label>
+        <label>Y<br><input id="ipY" type="number" min="0" value="${b.rect.y}" style="width:80px"></label>
+        <label>W<br><input id="ipW" type="number" min="1" value="${b.rect.w}" style="width:80px"></label>
+        <label>H<br><input id="ipH" type="number" min="1" value="${b.rect.h}" style="width:80px"></label>
+      </div>
+      <label><input type="checkbox" id="ipLock" ${b.rect.static?'checked':''}> Lock position/size</label>
+    </div>
+    <div class="note">Tip: use <code>{{invoice.*}}</code>, <code>{{checkout.*}}</code>, and in tables <code>{{row.*}}</code>. Math: <code>[[ row.qty * row.unitPrice ]]</code></div>
+  `;
+  $('#ipTitle').oninput = (e)=>{ b.title = e.target.value; refreshBlock(b.id); };
+  $('#ipVisibleIf').oninput = (e)=>{ b.visibleIf = e.target.value; refreshBlock(b.id); };
+  ['ipX','ipY','ipW','ipH'].forEach(id=>{
+    const el = $('#'+id); if (!el) return;
+    el.oninput = ()=> {
+      const v = Math.max(0, Number(el.value||0));
+      if (id==='ipX') b.rect.x = Math.min(GRID.cols - b.rect.w, v);
+      if (id==='ipY') b.rect.y = v;
+      if (id==='ipW') b.rect.w = Math.max(1, Math.min(GRID.cols - b.rect.x, v));
+      if (id==='ipH') b.rect.h = Math.max(1, v);
+      renderTemplateCanvas(); persistDraft();
+    };
+  });
+  $('#ipLock').onchange = (e)=>{ b.rect.static = e.target.checked; renderTemplateCanvas(); persistDraft(); };
+}
+
+/* --- Toolbar actions (lock/dup/del) --- */
+document.addEventListener('click', (e) => {
+  const actBtn = e.target.closest('.block-btn-mini'); 
+  if (!actBtn) return;
+  
+  const act = actBtn.getAttribute('data-act');
+  const blockEl = actBtn.closest('.template-block'); 
+  if (!blockEl) return;
+  
+  const id = blockEl.dataset.blockId;
+  const b = currentTemplate.blocks.find(x => x.id === id); 
+  if (!b) return;
+
+  if (act==='dup') {
+    const copy = JSON.parse(JSON.stringify(b));
+    copy.id = uid(); copy.rect = { ...copy.rect, i: uid(), y: copy.rect.y + 2 };
+    currentTemplate.blocks.push(copy);
+    renderTemplateCanvas(); selectBlock(copy.id); persistDraft();
+  }
+  if (act==='del') {
+    showConfirmModal(
+      'Are you sure you want to delete this block? This action cannot be undone.',
+      () => removeBlock(id)
+    );
+  }
+  if (act==='lock') {
+    b.rect.static = !b.rect.static;
+    renderTemplateCanvas(); selectBlock(id); persistDraft();
+  }
+});
 </script>
 </body>
 </html>
