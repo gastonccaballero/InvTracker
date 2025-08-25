@@ -569,29 +569,56 @@ footer{opacity:.7;margin-top:10px;font-size:12px}
   <!-- INVOICE TEMPLATES -->
   <section id="tab-templates" class="grid hidden">
     <div class="card">
-      <div class="flex" style="align-items:center">
+      <div class="flex" style="align-items:center; margin-bottom: 24px;">
         <h3 style="margin-right:auto">Invoice Templates</h3>
         <div class="toolbar">
           <button id="btnNewTemplate" class="primary">New Template</button>
-          <button id="btnSaveTemplate" class="green">Save Template</button>
-          <button id="btnPreviewTemplate" class="ghost">Preview</button>
+          <button id="btnExportTemplates" class="ghost">Export JSON</button>
+          <label class="btn ghost" for="tplImportInput">Import JSON</label>
+          <input id="tplImportInput" type="file" accept="application/json" style="display:none">
         </div>
       </div>
       
-      <div class="flex" style="gap:8px;align-items:center;margin:8px 0">
-        <button id="btnExportTemplates" class="ghost">Export JSON</button>
-        <label class="btn ghost" for="tplImportInput">Import JSON</label>
-        <input id="tplImportInput" type="file" accept="application/json" style="display:none">
-      </div>
-      
       <!-- Template Editor -->
-      <div id="templateEditor" style="display:none;">
-        <div class="grid" style="grid-template-columns: 1fr 340px; gap: 20px;">
-          <div class="card">
-            <div class="flex" style="align-items:center">
-              <h4 style="margin-right:auto">Template Canvas</h4>
-              <button id="btnAddBlock" class="primary" style="margin-right:12px;">Add Block</button>
-              <small class="mono" id="tplMeta"></small>
+      <div id="templateEditor" style="display:none; margin: 0 -24px; padding: 0 24px;">
+        <div style="display: flex; gap: 20px; align-items: flex-start; min-width: 1200px;">
+          <div class="card" style="width: auto; flex-shrink: 0;" id="blockInspectorContainer">
+            <div class="flex" style="align-items:center; justify-content:space-between;">
+              <h4 style="margin:0; cursor:pointer;" id="inspectorTitle">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="2" width="8" height="8" rx="2" ry="2"/>
+                  <rect x="2" y="12" width="8" height="8" rx="2" ry="2"/>
+                  <rect x="12" y="12" width="8" height="8" rx="2" ry="2"/>
+                  <rect x="14" y="0" width="8" height="8" rx="2" ry="2"/>
+                </svg>
+              </h4>
+              <button id="btnToggleInspector" class="ghost" style="padding:4px 8px; font-size:12px; display:none;" title="Toggle Inspector">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M15 18l-6-6 6-6"/>
+                </svg>
+              </button>
+            </div>
+            <div id="blockInspector" style="display:none;"><p>Select a block to edit its properties</p></div>
+          </div>
+          <div class="card" style="flex: 1;">
+            <div class="flex" style="align-items:center; margin-bottom: 16px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span id="templateName" style="font-weight: 600; color: #e2e8f0;">New Template</span>
+                <button id="btnEditTitle" class="ghost" style="padding: 2px 4px; font-size: 12px;" title="Edit Template Name">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+                    <path d="m15 5 4 4"/>
+                  </svg>
+                </button>
+              </div>
+              <h4 style="margin: 0 auto; text-align: center;">Template Canvas</h4>
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <button id="btnAddBlock" class="primary">Add Block</button>
+                <button id="btnSaveTemplate" class="green">Save Template</button>
+                <button id="btnPreviewTemplate" class="ghost">Preview</button>
+                <button id="btnCloseTemplate" class="ghost">Close</button>
+                <small class="mono" id="tplMeta" style="margin-left: 8px;"></small>
+              </div>
             </div>
             <div id="templateCanvas" class="template-canvas">
               <div class="canvas-page">
@@ -600,16 +627,12 @@ footer{opacity:.7;margin-top:10px;font-size:12px}
               </div>
             </div>
           </div>
-          <div class="card">
-            <h4>Block Inspector</h4>
-            <div id="blockInspector"><p>Select a block to edit its properties</p></div>
-          </div>
         </div>
       </div>
       
       <!-- Template List -->
       <div id="templateList">
-        <div id="templateCards" class="grid" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px;">
+        <div id="templateCards" class="grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">
           <!-- Cards rendered by JS -->
         </div>
       </div>
@@ -1581,6 +1604,8 @@ function initTemplateEditor() {
     $('#templateList').style.display = 'none';
     selectedBlockId = null;
     renderTemplateCanvas();
+    // Start with block inspector collapsed
+    collapseBlockInspector();
   };
 
   btnSave.onclick = () => {
@@ -1641,6 +1666,90 @@ function initTemplateEditor() {
       addBlockDialog.close();
     };
   });
+
+  // Close template functionality
+  const btnCloseTemplate = $('#btnCloseTemplate');
+  btnCloseTemplate.onclick = () => {
+    // Check for unsaved changes
+    if (currentTemplate && currentTemplate.updatedAt) {
+      const lastSaved = TPL_store()[currentTemplate.id]?.updatedAt;
+      if (lastSaved && currentTemplate.updatedAt > lastSaved) {
+        // Prompt user to save before closing
+        const choice = confirm('You have unsaved changes. Would you like to save before closing?\n\nClick "OK" to save and close, or "Cancel" to close without saving.');
+        if (choice) {
+          // Save the template
+          currentTemplate.updatedAt = new Date().toISOString();
+          TPL_upsert(currentTemplate);
+          alert('Template saved successfully!');
+        }
+      }
+    }
+    
+    // Close the template editor
+    $('#templateEditor').style.display = 'none';
+    $('#templateList').style.display = 'block';
+    currentTemplate = null;
+    selectedBlockId = null;
+  };
+
+  // Edit template title functionality
+  const btnEditTitle = $('#btnEditTitle');
+  const templateName = $('#templateName');
+  
+  btnEditTitle.onclick = () => {
+    const currentName = templateName.textContent;
+    const newName = prompt('Enter template name:', currentName);
+    if (newName && newName.trim() && newName !== currentName) {
+      if (currentTemplate) {
+        currentTemplate.name = newName.trim();
+        templateName.textContent = newName.trim();
+        // Update the meta display
+        const meta = $('#tplMeta');
+        if (meta) {
+          meta.textContent = `${currentTemplate.name} • ${currentTemplate.page.columns || GRID.cols} cols`;
+        }
+        persistDraft();
+      }
+    }
+  };
+
+  // Block Inspector configuration
+  const INSPECTOR_WIDTH = 200; // Adjust this value to change inspector width
+  
+  // Block Inspector toggle functionality
+  const btnToggleInspector = $('#btnToggleInspector');
+  const blockInspector = $('#blockInspector');
+  const blockInspectorContainer = $('#blockInspectorContainer');
+  const inspectorTitle = $('#inspectorTitle');
+  
+  function collapseBlockInspector() {
+    blockInspector.style.display = 'none';
+    blockInspectorContainer.style.width = 'auto';
+    inspectorTitle.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="8" height="8" rx="2" ry="2"/><rect x="2" y="12" width="8" height="8" rx="2" ry="2"/><rect x="12" y="12" width="8" height="8" rx="2" ry="2"/><rect x="14" y="0" width="8" height="8" rx="2" ry="2"/></svg>'; // Block icon only
+    // Hide the toggle button when collapsed
+    btnToggleInspector.style.display = 'none';
+  }
+  
+  function expandBlockInspector() {
+    blockInspector.style.display = 'block';
+    blockInspectorContainer.style.width = INSPECTOR_WIDTH + 'px';
+    inspectorTitle.innerHTML = 'Block Inspector';
+    // Show the toggle button when expanded
+    btnToggleInspector.style.display = 'block';
+  }
+  
+  // Make the title clickable to expand when collapsed
+  inspectorTitle.onclick = () => {
+    if (blockInspector.style.display === 'none') {
+      expandBlockInspector();
+    }
+  };
+  
+
+  
+  btnToggleInspector.onclick = () => {
+    collapseBlockInspector();
+  };
 }
 
 /* --- Starter template --- */
@@ -1687,9 +1796,11 @@ function renderTemplateCards() {
   const wrap = $('#templateCards');
   const list = TPL_list();
   wrap.innerHTML = list.map(t => `
-    <div class="card template-card">
-      <h4>${escapeHtml(t.name)}</h4>
-      <p>Blocks: ${t.blocks.length} • Updated: ${(t.updatedAt||'').slice(0,10)}</p>
+    <div class="card template-card" style="grid-column: span 1; min-height: 140px; display: flex; flex-direction: column; justify-content: space-between;">
+      <div>
+        <h4 style="margin: 0 0 8px 0; font-size: 16px;">${escapeHtml(t.name)}</h4>
+        <p style="margin: 0; color: #a7b0bf; font-size: 13px;">Blocks: ${t.blocks.length} • Updated: ${(t.updatedAt||'').slice(0,10)}</p>
+      </div>
       <div class="flex" style="gap:8px;margin-top:12px;">
         <button class="ghost" data-open="${t.id}" style="font-size:12px;">Edit</button>
         <button class="ghost" data-dup="${t.id}"  style="font-size:12px;">Duplicate</button>
@@ -1697,10 +1808,10 @@ function renderTemplateCards() {
       </div>
     </div>
   `).join('') + `
-    <div class="card template-card" style="cursor:pointer;border:2px dashed #ffffff33;">
-      <div style="text-align:center;padding:40px 20px;color:#a7b0bf" id="cardNewTpl">
-        <div style="font-size:24px;margin-bottom:8px;">+</div>
-        <div>Create New Template</div>
+    <div class="card template-card" style="grid-column: span 1; cursor:pointer; border:2px dashed #ffffff33; min-height: 140px; display: flex; align-items: center; justify-content: center;">
+      <div style="text-align:center;padding:20px;color:#a7b0bf" id="cardNewTpl">
+        <div style="font-size:32px;margin-bottom:12px;">+</div>
+        <div style="font-size:14px;">Create New Template</div>
       </div>
     </div>
   `;
@@ -1716,6 +1827,8 @@ function renderTemplateCards() {
       $('#templateList').style.display = 'none';
       selectedBlockId = null;
       renderTemplateCanvas();
+      // Start with block inspector collapsed
+      collapseBlockInspector();
     } else if (dupId) {
       const base = TPL_store()[dupId]; if (!base) return;
       const copy = JSON.parse(JSON.stringify(base));
@@ -1736,10 +1849,13 @@ function renderTemplateCards() {
 function renderTemplateCanvas() {
   const canvasInner = $('#canvasInner');
   const meta = $('#tplMeta');
+  const templateName = $('#templateName');
   canvasInner.innerHTML = '';
   const tpl = currentTemplate; if (!tpl) return;
 
-  meta.textContent = `${tpl.name} • ${tpl.page.columns || GRID.cols} cols`;
+  // Update template name and meta
+  if (templateName) templateName.textContent = tpl.name;
+  meta.textContent = `${tpl.page.columns || GRID.cols} cols`;
 
   for (const b of tpl.blocks) {
     const el = document.createElement('div');
